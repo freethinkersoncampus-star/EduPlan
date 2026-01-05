@@ -1,0 +1,9 @@
+{
+  "name": "Copy of EduPlan CBC Master",
+  "description": "A comprehensive pedagogical management platform for CBC teachers to manage timetables, generate KICD-aligned Schemes of Work, Lesson Plans, and Lesson Notes using Gemini AI.",
+  "version": "1.0.0-beta",
+  "author": "EduPlan Tech",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
