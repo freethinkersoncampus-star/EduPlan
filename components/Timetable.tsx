@@ -18,6 +18,10 @@ const Timetable: React.FC<TimetableProps> = ({ slots, setSlots }) => {
     }
   };
 
+  const deleteSlot = (id: string) => {
+    setSlots(slots.filter(s => s.id !== id));
+  };
+
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -30,7 +34,7 @@ const Timetable: React.FC<TimetableProps> = ({ slots, setSlots }) => {
         </button>
       </div>
 
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         {days.map(day => (
           <div key={day} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             <div className="bg-indigo-50 px-4 py-2 border-b border-slate-200 text-center font-bold text-indigo-900">
@@ -38,8 +42,14 @@ const Timetable: React.FC<TimetableProps> = ({ slots, setSlots }) => {
             </div>
             <div className="p-2 space-y-2 min-h-[300px]">
               {slots.filter(s => s.day === day).sort((a,b) => a.startTime.localeCompare(b.startTime)).map(slot => (
-                <div key={slot.id} className="p-3 bg-white border-l-4 border-indigo-500 rounded shadow-sm text-sm">
-                  <p className="font-bold text-indigo-700">{slot.subject}</p>
+                <div key={slot.id} className="p-3 bg-white border-l-4 border-indigo-500 rounded shadow-sm text-sm relative group">
+                  <button 
+                    onClick={() => deleteSlot(slot.id)}
+                    className="absolute top-2 right-2 text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <i className="fas fa-trash-alt text-xs"></i>
+                  </button>
+                  <p className="font-bold text-indigo-700 pr-4">{slot.subject}</p>
                   <p className="text-slate-500 font-medium">{slot.grade}</p>
                   <p className="text-xs text-slate-400 mt-1">
                     <i className="far fa-clock mr-1"></i> {slot.startTime} - {slot.endTime}

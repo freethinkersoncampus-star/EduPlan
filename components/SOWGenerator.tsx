@@ -1,400 +1,252 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { generateSOW } from '../services/geminiService';
-import { SOWRow, LessonSlot, SchoolCalendar } from '../types';
+import { SOWRow, LessonSlot, SchoolCalendar, SavedSOW } from '../types';
 
 interface SOWGeneratorProps {
   timetableSlots: LessonSlot[];
+  knowledgeContext?: string;
 }
 
-const SOWGenerator: React.FC<SOWGeneratorProps> = ({ timetableSlots }) => {
+const SOWGenerator: React.FC<SOWGeneratorProps> = ({ timetableSlots, knowledgeContext }) => {
   const [loading, setLoading] = useState(false);
   const [sow, setSow] = useState<SOWRow[]>([]);
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [history, setHistory] = useState<SavedSOW[]>([]);
   
   const [formData, setFormData] = useState({
-    subject: 'Mathematics',
-    grade: 'Grade 4',
-    term: 1,
+    subject: 'Integrated Science',
+    grade: '8',
+    term: 2,
+    school: '',
+    year: '2025'
   });
 
   const [calendar, setCalendar] = useState<SchoolCalendar>({
-    term: 1,
-    startDate: '2024-01-08',
-    endDate: '2024-04-05',
-    halfTermStart: '2024-02-19',
-    halfTermEnd: '2024-02-23'
+    term: 2,
+    startDate: '2025-05-05',
+    endDate: '2025-08-01',
+    halfTermStart: '2025-06-16',
+    halfTermEnd: '2025-06-20'
   });
 
-  const [syncWithTimetable, setSyncWithTimetable] = useState(true);
-
-  const getDayName = (date: Date) => {
-    return date.toLocaleDateString('en-US', { weekday: 'long' });
-  };
-
-  const isDateInHalfTerm = (date: Date) => {
-    const d = new Date(date).setHours(0,0,0,0);
-    const start = new Date(calendar.halfTermStart).setHours(0,0,0,0);
-    const end = new Date(calendar.halfTermEnd).setHours(0,0,0,0);
-    return d >= start && d <= end;
-  };
+  useEffect(() => {
+    const saved = localStorage.getItem('eduplan_sow_history');
+    if (saved) setHistory(JSON.parse(saved));
+    
+    const profile = localStorage.getItem('eduplan_profile');
+    if (profile) {
+      const p = JSON.parse(profile);
+      setFormData(prev => ({ ...prev, school: p.school }));
+    }
+  }, []);
 
   const handleGenerate = async () => {
     setLoading(true);
-    setSow([]);
     try {
       const relevantSlots = timetableSlots.filter(
-        s => s.subject.toLowerCase() === formData.subject.toLowerCase() && 
-             s.grade.toLowerCase() === formData.grade.toLowerCase()
+        s => s.subject.toLowerCase().includes(formData.subject.toLowerCase())
       );
-
-      if (relevantSlots.length === 0 && syncWithTimetable) {
-        alert(`No lessons for ${formData.subject} (${formData.grade}) found in your timetable. Please add them first or disable timetable sync.`);
-        setLoading(false);
-        return;
-      }
-
-      const estimatedTotalLessons = syncWithTimetable ? (relevantSlots.length * 12) : 60;
-      const result = await generateSOW(formData.subject, formData.grade, formData.term, estimatedTotalLessons);
+      const estimatedTotalLessons = 60; // Standard term estimate
+      const result = await generateSOW(formData.subject, formData.grade, formData.term, estimatedTotalLessons, knowledgeContext);
       
       let finalRows: SOWRow[] = [];
+      let currentDate = new Date(calendar.startDate);
+      let sowIndex = 0;
 
-      if (syncWithTimetable) {
-        let currentDate = new Date(calendar.startDate);
-        const termEndDate = new Date(calendar.endDate);
-        let sowIndex = 0;
-
-        while (currentDate <= termEndDate && sowIndex < result.length) {
-          if (!isDateInHalfTerm(currentDate)) {
-            const dayName = getDayName(currentDate);
-            const slotsToday = relevantSlots.filter(s => s.day === dayName);
-            slotsToday.sort((a,b) => a.startTime.localeCompare(b.startTime));
-
-            for (let i = 0; i < slotsToday.length && sowIndex < result.length; i++) {
-              finalRows.push({
-                ...result[sowIndex],
-                date: currentDate.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
-              });
-              sowIndex++;
-            }
-          }
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-      } else {
-        finalRows = result.map((row, index) => {
-          const d = new Date(calendar.startDate);
-          d.setDate(d.getDate() + (row.week - 1) * 7 + (row.lesson - 1));
-          return { ...row, date: d.toLocaleDateString('en-GB') };
+      // Simple date attribution (ignores weekends/holidays for this logic, focus on sequence)
+      while (currentDate <= new Date(calendar.endDate) && sowIndex < result.length) {
+        finalRows.push({
+          ...result[sowIndex],
+          date: currentDate.toLocaleDateString('en-GB')
         });
+        sowIndex++;
+        currentDate.setDate(currentDate.getDate() + 1);
       }
-
       setSow(finalRows);
     } catch (err) {
-      console.error(err);
-      alert("Failed to generate Scheme of Work.");
+      alert("Failed to generate SOW.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEditRow = (index: number, field: keyof SOWRow, value: any) => {
-    const updatedSow = [...sow];
-    updatedSow[index] = { ...updatedSow[index], [field]: value };
-    setSow(updatedSow);
+  const saveToHistory = () => {
+    if (sow.length === 0) return;
+    const newEntry: SavedSOW = {
+      id: Date.now().toString(),
+      dateCreated: new Date().toLocaleDateString(),
+      subject: formData.subject,
+      grade: formData.grade,
+      term: formData.term,
+      data: sow
+    };
+    const updated = [newEntry, ...history];
+    setHistory(updated);
+    localStorage.setItem('eduplan_sow_history', JSON.stringify(updated));
+    alert("Saved to SOW Library!");
   };
 
   const downloadCSV = () => {
-    if (sow.length === 0) return;
-
-    const headers = ["Week", "Lesson", "Date", "Strand", "Sub-strand", "Learning Outcomes", "Inquiry Questions", "Assessment"];
-    const rows = sow.map(row => [
-      row.week,
-      row.lesson,
-      row.date,
-      `"${row.strand.replace(/"/g, '""')}"`,
-      `"${row.subStrand.replace(/"/g, '""')}"`,
-      `"${row.learningOutcomes.replace(/"/g, '""')}"`,
-      `"${row.keyInquiryQuestion.replace(/"/g, '""')}"`,
-      `"${row.assessment.replace(/"/g, '""')}"`
-    ]);
-
+    const headers = ["Week", "Lesson", "Strand", "Sub-strand", "Outcomes", "Experiences", "Inquiry", "Resources", "Assessment", "Reflection"];
+    const rows = sow.map(r => [r.week, r.lesson, r.strand, r.subStrand, `"${r.learningOutcomes}"`, `"${r.learningExperiences}"`, `"${r.keyInquiryQuestion}"`, `"${r.resources}"`, `"${r.assessment}"`, ""]);
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `SOW_${formData.subject}_${formData.grade}_Term${formData.term}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
+    link.href = url;
+    link.download = `SOW_${formData.subject}_G${formData.grade}.csv`;
     link.click();
-    document.body.removeChild(link);
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   return (
     <div className="p-6">
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-6 print:hidden">
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-6 print:hidden">
         <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-          <i className="fas fa-sync-alt text-indigo-500"></i>
-          Smart CBC SOW Generator
+          <i className="fas fa-file-invoice text-indigo-500"></i>
+          SOW Generation Settings
         </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8 p-4 bg-slate-50 rounded-xl border border-slate-100">
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b pb-2">1. Class Details</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Subject</label>
-                <input 
-                  type="text" 
-                  className="w-full border rounded-lg p-2 text-sm"
-                  value={formData.subject}
-                  onChange={e => setFormData({...formData, subject: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Grade</label>
-                <input 
-                  type="text" 
-                  className="w-full border rounded-lg p-2 text-sm"
-                  placeholder="e.g. Grade 4"
-                  value={formData.grade}
-                  onChange={e => setFormData({...formData, grade: e.target.value})}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Term</label>
-              <select 
-                className="w-full border rounded-lg p-2 text-sm"
-                value={formData.term}
-                onChange={e => setFormData({...formData, term: parseInt(e.target.value)})}
-              >
-                {[1,2,3].map(t => <option key={t} value={t}>Term {t}</option>)}
-              </select>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Subject</label>
+            <input className="w-full border p-2.5 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Subject" value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} />
           </div>
-
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b pb-2">2. School Calendar</h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Term Start</label>
-                <input 
-                  type="date" 
-                  className="w-full border rounded-lg p-2 text-xs"
-                  value={calendar.startDate}
-                  onChange={e => setCalendar({...calendar, startDate: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Term End</label>
-                <input 
-                  type="date" 
-                  className="w-full border rounded-lg p-2 text-xs"
-                  value={calendar.endDate}
-                  onChange={e => setCalendar({...calendar, endDate: e.target.value})}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Half-Term Start</label>
-                <input 
-                  type="date" 
-                  className="w-full border rounded-lg p-2 text-xs"
-                  value={calendar.halfTermStart}
-                  onChange={e => setCalendar({...calendar, halfTermStart: e.target.value})}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase">Half-Term End</label>
-                <input 
-                  type="date" 
-                  className="w-full border rounded-lg p-2 text-xs"
-                  value={calendar.halfTermEnd}
-                  onChange={e => setCalendar({...calendar, halfTermEnd: e.target.value})}
-                />
-              </div>
-            </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Grade</label>
+            <input className="w-full border p-2.5 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Grade" value={formData.grade} onChange={e => setFormData({...formData, grade: e.target.value})} />
           </div>
-
-          <div className="space-y-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b pb-2">3. Automation</h3>
-            <div className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg">
-              <input 
-                type="checkbox" 
-                id="sync-toggle"
-                className="w-5 h-5 accent-indigo-600 rounded"
-                checked={syncWithTimetable}
-                onChange={e => setSyncWithTimetable(e.target.checked)}
-              />
-              <label htmlFor="sync-toggle" className="text-xs font-semibold text-slate-700 cursor-pointer">
-                Sync with my Timetable
-              </label>
-            </div>
-            <p className="text-[10px] text-slate-400 leading-relaxed">
-              When enabled, Gemini will only schedule lessons on days where you have "{formData.subject}" for "{formData.grade}" in your current weekly timetable.
-            </p>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Term</label>
+            <input className="w-full border p-2.5 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none" type="number" value={formData.term} onChange={e => setFormData({...formData, term: parseInt(e.target.value)})} />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Year</label>
+            <input className="w-full border p-2.5 rounded-xl text-sm bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="Year" value={formData.year} onChange={e => setFormData({...formData, year: e.target.value})} />
+          </div>
+          <div className="flex items-end">
             <button 
-              onClick={handleGenerate}
-              disabled={loading}
-              className={`w-full bg-indigo-600 text-white py-3 rounded-lg font-bold transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 ${loading ? 'opacity-50' : 'hover:bg-indigo-700 hover:scale-[1.02] active:scale-[0.98]'}`}
+              onClick={handleGenerate} 
+              disabled={loading} 
+              className="w-full bg-indigo-600 text-white font-bold h-[42px] rounded-xl hover:bg-indigo-700 transition shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
             >
               {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-magic"></i>}
-              Generate & Sync SOW
+              Generate
             </button>
           </div>
         </div>
       </div>
 
       {sow.length > 0 && (
-        <div id="printable-sow" className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="p-5 bg-slate-50 border-b flex justify-between items-center print:hidden">
-            <div>
-              <h3 className="font-bold text-slate-800">Scheme of Work: {formData.subject} {formData.grade}</h3>
-              <p className="text-xs text-slate-500">Synchronized & Editable. Use the <i className="fas fa-pen text-[10px]"></i> icon to customize rows.</p>
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mb-12">
+          {/* Header Metadata Section - Modern Look */}
+          <div className="p-8 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="text-center md:text-left">
+              <h1 className="text-xl font-black text-indigo-900 uppercase tracking-tight">
+                {formData.year} Rationalized CBC {formData.subject}
+              </h1>
+              <p className="text-sm text-slate-500 font-medium">Schemes of Work - Grade {formData.grade} (Term {formData.term})</p>
             </div>
-            <div className="flex gap-2">
-              <button 
-                onClick={handlePrint}
-                className="bg-white text-slate-700 border px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-slate-50 transition"
-              >
-                <i className="fas fa-print mr-2"></i> Print / PDF
-              </button>
-              <button 
-                onClick={downloadCSV}
-                className="bg-indigo-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition flex items-center gap-2"
-              >
-                <i className="fas fa-file-csv"></i> Download CSV
-              </button>
-            </div>
-          </div>
-          
-          <div className="hidden print:block p-8 border-b-2 border-slate-900 mb-6">
-            <h1 className="text-2xl font-black text-center uppercase mb-2">Scheme of Work</h1>
-            <div className="grid grid-cols-2 gap-4 text-sm font-bold">
-              <p>SUBJECT: {formData.subject.toUpperCase()}</p>
-              <p>GRADE: {formData.grade.toUpperCase()}</p>
-              <p>TERM: {formData.term}</p>
-              <p>YEAR: {new Date().getFullYear()}</p>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+                <p>School</p>
+                <p className="text-indigo-600 truncate max-w-[120px]">{formData.school || 'Not Set'}</p>
+              </div>
+              <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+                <p>Grade</p>
+                <p className="text-indigo-600">{formData.grade}</p>
+              </div>
+              <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+                <p>Term</p>
+                <p className="text-indigo-600">{formData.term}</p>
+              </div>
+              <div className="bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
+                <p>Year</p>
+                <p className="text-indigo-600">{formData.year}</p>
+              </div>
             </div>
           </div>
 
+          {/* Table Content Section */}
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left border-collapse">
-              <thead className="bg-slate-50/50 border-b text-slate-500 font-bold uppercase text-[10px] tracking-widest print:bg-slate-200 print:text-black">
-                <tr>
-                  <th className="p-4 border-r w-12 text-center">Wk</th>
-                  <th className="p-4 border-r w-12 text-center">Lsn</th>
-                  <th className="p-4 border-r w-32">Date</th>
-                  <th className="p-4 border-r">Strand & Sub-strand</th>
-                  <th className="p-4 border-r">Learning Outcomes</th>
-                  <th className="p-4 border-r">Inquiry Questions</th>
-                  <th className="p-4 border-r">Assessment</th>
-                  <th className="p-4 print:hidden">Actions</th>
+            <table className="w-full border-collapse text-[11px]">
+              <thead className="bg-slate-50/50 border-b border-slate-200">
+                <tr className="text-slate-500 uppercase font-bold text-[9px] tracking-wider">
+                  <th className="p-4 border-r border-slate-100 w-12">Wk</th>
+                  <th className="p-4 border-r border-slate-100 w-12">Lsn</th>
+                  <th className="p-4 border-r border-slate-100">Strand</th>
+                  <th className="p-4 border-r border-slate-100">Sub-strand</th>
+                  <th className="p-4 border-r border-slate-100 min-w-[200px]">Specific-Learning outcomes</th>
+                  <th className="p-4 border-r border-slate-100 min-w-[200px]">Learning Experience</th>
+                  <th className="p-4 border-r border-slate-100">Inquiry Question(S)</th>
+                  <th className="p-4 border-r border-slate-100">Resources</th>
+                  <th className="p-4 border-r border-slate-100">Assessment</th>
+                  <th className="p-4">Reflection</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 print:divide-slate-900">
-                {sow.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-indigo-50/30 transition group print:break-inside-avoid">
-                    <td className="p-4 border-r font-medium text-center text-slate-400 group-hover:text-indigo-600 print:text-black">{row.week}</td>
-                    <td className="p-4 border-r text-center font-bold text-slate-700 group-hover:text-indigo-600 print:text-black">{row.lesson}</td>
-                    <td className="p-4 border-r">
-                      <div className="flex flex-col">
-                        <span className="text-indigo-600 font-bold text-xs print:text-black">{row.date}</span>
-                      </div>
+              <tbody className="divide-y divide-slate-100">
+                {sow.map((r, i) => (
+                  <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-4 text-center font-bold text-indigo-600 bg-indigo-50/30 border-r border-slate-100">{r.week}</td>
+                    <td className="p-4 text-center text-slate-400 border-r border-slate-100">{r.lesson}</td>
+                    <td className="p-4 font-semibold text-slate-700 border-r border-slate-100">{r.strand}</td>
+                    <td className="p-4 text-slate-500 border-r border-slate-100">{r.subStrand}</td>
+                    <td className="p-4 whitespace-pre-wrap leading-relaxed border-r border-slate-100">{r.learningOutcomes}</td>
+                    <td className="p-4 whitespace-pre-wrap leading-relaxed border-r border-slate-100 italic text-slate-600">{r.learningExperiences}</td>
+                    <td className="p-4 text-indigo-700 font-medium border-r border-slate-100">{r.keyInquiryQuestion}</td>
+                    <td className="p-4 text-slate-500 border-r border-slate-100">{r.resources}</td>
+                    <td className="p-4 border-r border-slate-100">
+                      <span className="bg-slate-100 px-2 py-0.5 rounded text-[9px] font-bold text-slate-600">{r.assessment}</span>
                     </td>
-                    <td className="p-4 border-r">
-                      {editingIndex === idx ? (
-                        <div className="space-y-2">
-                          <input 
-                            className="w-full border rounded p-1 text-xs" 
-                            value={row.strand} 
-                            onChange={e => handleEditRow(idx, 'strand', e.target.value)} 
-                          />
-                          <input 
-                            className="w-full border rounded p-1 text-xs" 
-                            value={row.subStrand} 
-                            onChange={e => handleEditRow(idx, 'subStrand', e.target.value)} 
-                          />
-                        </div>
-                      ) : (
-                        <>
-                          <p className="font-bold text-slate-800 text-xs mb-1 print:text-black">{row.strand}</p>
-                          <p className="text-xs text-indigo-600 font-medium print:text-black">{row.subStrand}</p>
-                        </>
-                      )}
-                    </td>
-                    <td className="p-4 border-r text-xs leading-relaxed text-slate-600 max-w-xs print:text-black">
-                      {editingIndex === idx ? (
-                        <textarea 
-                          className="w-full border rounded p-1 text-xs" 
-                          rows={3}
-                          value={row.learningOutcomes} 
-                          onChange={e => handleEditRow(idx, 'learningOutcomes', e.target.value)} 
-                        />
-                      ) : row.learningOutcomes}
-                    </td>
-                    <td className="p-4 border-r text-xs text-slate-500 italic print:text-black">
-                      {editingIndex === idx ? (
-                        <input 
-                          className="w-full border rounded p-1 text-xs" 
-                          value={row.keyInquiryQuestion} 
-                          onChange={e => handleEditRow(idx, 'keyInquiryQuestion', e.target.value)} 
-                        />
-                      ) : row.keyInquiryQuestion}
-                    </td>
-                    <td className="p-4 border-r">
-                      {editingIndex === idx ? (
-                        <input 
-                          className="w-full border rounded p-1 text-xs" 
-                          value={row.assessment} 
-                          onChange={e => handleEditRow(idx, 'assessment', e.target.value)} 
-                        />
-                      ) : (
-                        <span className="inline-block px-2 py-1 rounded bg-slate-100 text-slate-600 font-bold text-[9px] uppercase print:bg-transparent print:p-0 print:text-black">
-                          {row.assessment}
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-4 text-center print:hidden">
-                      {editingIndex === idx ? (
-                        <button 
-                          onClick={() => setEditingIndex(null)}
-                          className="text-green-600 hover:text-green-700 font-bold text-xs bg-green-50 px-3 py-1 rounded"
-                        >
-                          Save
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => setEditingIndex(idx)}
-                          className="text-slate-400 hover:text-indigo-600 transition"
-                        >
-                          <i className="fas fa-pen text-sm"></i>
-                        </button>
-                      )}
-                    </td>
+                    <td className="p-4 bg-slate-50/30"></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          
+          <div className="p-8 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 print:hidden">
+            <button onClick={saveToHistory} className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-2 rounded-xl font-bold hover:bg-emerald-100 transition">
+              <i className="fas fa-save mr-2"></i> Save to Records
+            </button>
+            <button onClick={downloadCSV} className="bg-indigo-50 text-indigo-600 border border-indigo-100 px-6 py-2 rounded-xl font-bold hover:bg-indigo-100 transition">
+              <i className="fas fa-file-excel mr-2"></i> Export Excel (CSV)
+            </button>
+            <button onClick={() => window.print()} className="bg-indigo-600 text-white px-8 py-2 rounded-xl font-bold hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">
+              <i className="fas fa-print mr-2"></i> Print to PDF
+            </button>
+          </div>
         </div>
       )}
 
-      {sow.length === 0 && !loading && (
-        <div className="flex flex-col items-center justify-center py-32 text-slate-300 print:hidden">
-          <div className="w-24 h-24 rounded-full bg-slate-100 flex items-center justify-center mb-6">
-            <i className="fas fa-calendar-check text-4xl"></i>
-          </div>
-          <h3 className="text-xl font-bold text-slate-400">Ready to Plan?</h3>
-          <p className="max-w-xs text-center mt-2 text-sm">Fill in your class details and sync with your timetable to generate a fully dated SOW.</p>
+      {/* Modern Library Section */}
+      <div className="mt-8 print:hidden">
+        <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+          <i className="fas fa-archive text-indigo-500"></i>
+          Scheme Library
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {history.length > 0 ? history.map(h => (
+            <div key={h.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-indigo-300 transition group">
+              <div className="flex justify-between items-start mb-2">
+                <p className="font-bold text-slate-800">{h.subject}</p>
+                <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">Term {h.term}</span>
+              </div>
+              <p className="text-xs text-slate-400 mb-4">Grade {h.grade} • {h.dateCreated}</p>
+              <button 
+                onClick={() => setSow(h.data)} 
+                className="w-full bg-slate-50 text-slate-600 py-2 rounded-lg text-xs font-bold hover:bg-indigo-600 hover:text-white transition"
+              >
+                View Records
+              </button>
+            </div>
+          )) : (
+            <div className="col-span-full py-12 text-center bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-slate-400">
+              <i className="fas fa-folder-open text-4xl mb-3 opacity-20"></i>
+              <p className="text-sm font-medium">No saved schemes yet.</p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

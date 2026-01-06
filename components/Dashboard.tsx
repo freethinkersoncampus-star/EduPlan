@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LessonSlot } from '../types';
+import { LessonSlot, UserProfile } from '../types';
 
 interface DashboardProps {
   stats: {
@@ -10,9 +10,11 @@ interface DashboardProps {
     nextLesson: string;
   };
   slots: LessonSlot[];
+  // Added user property to DashboardProps to fix type error in App.tsx
+  user: UserProfile;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ stats, slots }) => {
+const Dashboard: React.FC<DashboardProps> = ({ stats, slots, user }) => {
   const statCards = [
     { label: 'SOW Generated', value: stats.sowCount.toString(), icon: 'fa-file-invoice', color: 'bg-blue-500' },
     { label: 'Lesson Plans', value: stats.planCount.toString(), icon: 'fa-book-open', color: 'bg-emerald-500' },
@@ -27,7 +29,8 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, slots }) => {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-800">Welcome Back, Jane</h1>
+        {/* Updated to display dynamic user name from props instead of hardcoded "Jane" */}
+        <h1 className="text-3xl font-bold text-slate-800">Welcome Back, {user.name}</h1>
         <p className="text-slate-500 mt-1">Here is what's happening today, {currentDay}, in your CBC classroom.</p>
       </div>
 
