@@ -16,16 +16,17 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
         @media print {
-            body { background: white; }
+            @page {
+                size: A4 portrait;
+                margin: 10mm;
+            }
+            body { background: white; margin: 0; padding: 0; }
             aside, header, .print\:hidden { display: none !important; }
             main { margin-left: 0 !important; padding: 0 !important; width: 100% !important; }
             .print\:block { display: block !important; }
-            table { border-collapse: collapse; width: 100%; border: 1px solid black !important; }
-            th, td { border: 1px solid black !important; padding: 8px !important; }
-            .shadow-sm, .rounded-xl { box-shadow: none !important; border-radius: 0 !important; }
-            .print-container { width: 100% !important; border: none !important; }
+            .no-print { display: none !important; }
+            .lesson-plan-card { border: none !important; box-shadow: none !important; width: 100% !important; }
         }
-        /* Custom Table Styling for Markdown */
         .prose table {
             width: 100%;
             border-collapse: collapse;
@@ -40,6 +41,22 @@
             background-color: #f8fafc;
             font-weight: 600;
         }
+        /* Document Styles */
+        .doc-header-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            border-bottom: 2px solid #000;
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .doc-header-item {
+            display: flex;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
     </style>
 <script type="importmap">
 {
@@ -51,7 +68,9 @@
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
     "vite": "https://esm.sh/vite@^7.3.0",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "remark-gfm": "https://esm.sh/remark-gfm@^4.0.1"
+    "remark-gfm": "https://esm.sh/remark-gfm@^4.0.1",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@4.10.38",
+    "mammoth": "https://esm.sh/mammoth@1.8.0"
   }
 }
 </script>
