@@ -1,8 +1,12 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { SOWRow, LessonPlan, TimetableConfig, TeacherAssignment, LessonSlot } from "../types";
+import { SOWRow, LessonPlan } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+const cleanJSONResponse = (text: string) => {
+  return text.replace(/```json/g, "").replace(/```/g, "").trim();
+};
 
 export const generateSOW = async (
   subject: string, 
@@ -11,103 +15,64 @@ export const generateSOW = async (
   lessonSlotsCount: number,
   knowledgeContext?: string
 ): Promise<SOWRow[]> => {
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `
-    ${knowledgeContext ? `CONTEXT FROM TEACHER'S DOCUMENTS: \n${knowledgeContext}\n\n` : ''}
-    Generate a CBC-compliant "Rationalized" Scheme of Work for ${subject} Grade ${grade} for Term ${term}. 
-    Total lessons: ${lessonSlotsCount}. 
-    
-    MUST INCLUDE ALL THESE COLUMNS:
-    - week: integer
-    - lesson: integer
-    - strand: string
-    - subStrand: string
-    - learningOutcomes: string (Bullets, concise)
-    - learningExperiences: string (Classroom activities)
-    - keyInquiryQuestion: string (At least one)
-    - resources: string (Locally available materials & KICD approved books)
-    - assessment: string (Methods like observation, oral, etc.)
-    - reflection: Always return empty string ""
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `
+      ${knowledgeContext ? `KNOWLEDGE SOURCES: \n${knowledgeContext}\n\n` : ''}
+      ACT AS A KICD CURRICULUM SPECIALIST.
+      Generate a CBE-compliant Rationalized Scheme of Work for: ${subject}, Level: ${grade}, Term: ${term}.
+      Generate ${lessonSlotsCount} lessons.
+      
+      MANDATORY FORMATTING FOR CBE GUIDELINES:
+      - learningOutcomes: Must be a lettered list (a, b, c) starting with "By the end of the lesson, the learner should be able to:".
+      - teachingExperiences: Must be detailed learner-centered activities starting with "Learners are guided in pairs, groups or individually to:".
+      - keyInquiryQuestions: Stimulating questions related to the topic.
+      - learningResources: Specific citations (e.g., 'Spotlight Integrated Science Learner's Book Grade 7 pg. 66-67').
+      - assessmentMethods: Multiple methods (e.g., Written Test, Rubrics, Oral Questions).
 
-    Ensure CBC Kenya rationalized syllabus standards are strictly followed.`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            week: { type: Type.INTEGER },
-            lesson: { type: Type.INTEGER },
-            strand: { type: Type.STRING },
-            subStrand: { type: Type.STRING },
-            learningOutcomes: { type: Type.STRING },
-            learningExperiences: { type: Type.STRING },
-            keyInquiryQuestion: { type: Type.STRING },
-            resources: { type: Type.STRING },
-            assessment: { type: Type.STRING },
-            reflection: { type: Type.STRING }
-          },
-          required: ["week", "lesson", "strand", "subStrand", "learningOutcomes", "learningExperiences", "keyInquiryQuestion", "resources", "assessment", "reflection"]
+      RETURN JSON ARRAY:
+      - week: integer
+      - lesson: integer
+      - strand: string (UPPERCASE)
+      - subStrand: string
+      - learningOutcomes: string
+      - teachingExperiences: string
+      - keyInquiryQuestions: string
+      - learningResources: string
+      - assessmentMethods: string
+      - reflection: ""
+      `,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              week: { type: Type.INTEGER },
+              lesson: { type: Type.INTEGER },
+              strand: { type: Type.STRING },
+              subStrand: { type: Type.STRING },
+              learningOutcomes: { type: Type.STRING },
+              teachingExperiences: { type: Type.STRING },
+              keyInquiryQuestions: { type: Type.STRING },
+              learningResources: { type: Type.STRING },
+              assessmentMethods: { type: Type.STRING },
+              reflection: { type: Type.STRING }
+            },
+            required: ["week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection"]
+          }
         }
       }
-    }
-  });
+    });
 
-  return JSON.parse(response.text || '[]') as SOWRow[];
-};
-
-export const generateMasterTimetable = async (
-  config: TimetableConfig,
-  assignments: TeacherAssignment[]
-): Promise<LessonSlot[]> => {
-  const prompt = `
-    TASK: Generate a conflict-free school master timetable matching the reference photo structure.
-    
-    SCHOOL DAY STRUCTURE:
-    - Start: ${config.dayStartTime} (Assembly/Morning Activities)
-    - End: ${config.dayEndTime} (Games/Departure)
-    - Lesson Duration: ${config.lessonDuration} minutes
-    - Breaks/Fixed Activities: ${config.breaks.map(b => `${b.name}: ${b.startTime}-${b.endTime}`).join(', ')}
-    
-    TEACHER LOADS:
-    ${assignments.map(a => `- ${a.teacherName}: ${a.subject} for ${a.grade} (${a.lessonsPerWeek} lessons/week)`).join('\n')}
-    
-    STRICT PEDAGOGICAL CONSTRAINTS:
-    ${config.constraints}
-    - If a subject has a "Double" period, append "DOUBLE" to the subject name (e.g., "MATH DOUBLE").
-    - No teacher conflict.
-    - No grade conflict.
-    - Ensure lessons are exactly ${config.lessonDuration} mins.
-  `;
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: prompt,
-    config: {
-      thinkingConfig: { thinkingBudget: 16000 },
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.ARRAY,
-        items: {
-          type: Type.OBJECT,
-          properties: {
-            day: { type: Type.STRING },
-            startTime: { type: Type.STRING },
-            endTime: { type: Type.STRING },
-            teacherName: { type: Type.STRING },
-            subject: { type: Type.STRING },
-            grade: { type: Type.STRING },
-            type: { type: Type.STRING, enum: ['lesson', 'break', 'activity'] }
-          },
-          required: ["day", "startTime", "endTime", "teacherName", "subject", "grade", "type"]
-        }
-      }
-    }
-  });
-
-  return JSON.parse(response.text || '[]') as LessonSlot[];
+    const jsonStr = cleanJSONResponse(response.text || '[]');
+    return JSON.parse(jsonStr) as SOWRow[];
+  } catch (error) {
+    console.error("Error generating SOW:", error);
+    throw error;
+  }
 };
 
 export const generateLessonPlan = async (
@@ -118,68 +83,72 @@ export const generateLessonPlan = async (
   schoolName: string,
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `
-    ${knowledgeContext ? `CONTEXT FROM TEACHER DOCUMENTS: \n${knowledgeContext}\n\n` : ''}
-    Task: Create a highly detailed CBC Kenya lesson plan for ${subject} Grade ${grade}. 
-    Topic: ${strand} -> ${subStrand}.
-    
-    FORMAT REQUIREMENT: Follow the provided text sample format exactly.
-    
-    JSON Fields to fill:
-    - school: ${schoolName}
-    - learningArea: ${subject}
-    - grade: ${grade}
-    - date: Use a placeholder like "9/06/2025" or similar.
-    - time: "40MINS"
-    - roll: "28" (typical class size)
-    - strand: string
-    - subStrand: string
-    - keyInquiryQuestion: A "How" or "Why" question.
-    - outcomes: Array of 3 specific measurable goals.
-    - learningResources: Array of physical items needed.
-    - introduction: A short text with a question for learners.
-    - lessonDevelopment: Array of 4 steps (Hook, Input, Experiment/Activity, Discussion) each with duration and content.
-    - learnerReflection: A reflection question for students.
-    - teacherReflection: Array of 3 evaluative questions for the teacher.`,
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          school: { type: Type.STRING },
-          learningArea: { type: Type.STRING },
-          grade: { type: Type.STRING },
-          date: { type: Type.STRING },
-          time: { type: Type.STRING },
-          roll: { type: Type.STRING },
-          strand: { type: Type.STRING },
-          subStrand: { type: Type.STRING },
-          keyInquiryQuestion: { type: Type.STRING },
-          outcomes: { type: Type.ARRAY, items: { type: Type.STRING } },
-          learningResources: { type: Type.ARRAY, items: { type: Type.STRING } },
-          introduction: { type: Type.STRING },
-          lessonDevelopment: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                title: { type: Type.STRING },
-                duration: { type: Type.STRING },
-                content: { type: Type.STRING }
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `
+      ${knowledgeContext ? `REFERENCE MATERIALS: \n${knowledgeContext}\n\n` : ''}
+      GENERATE A KENYAN CBE LESSON PLAN FOLLOWING THIS PRECISE KICD FORMAT:
+      
+      Learning Area: ${subject}, Grade: ${grade}. Topic: ${strand} -> ${subStrand}.
+      
+      MANDATORY SECTIONS:
+      1. Outcomes: List starting with "By the end of the lesson, learners should be able to:".
+      2. Organization of Learning:
+         - Introduction (5 mins): Specific activities.
+         - Lesson Development (30 mins): 4 distinct steps with titles and durations.
+         - Conclusion (5 mins): Brief summary activities.
+      3. Extended Activities: Creative or research-based follow-ups.
+      4. Key Inquiry Questions: Specific questions for the lesson.
+      `,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            school: { type: Type.STRING },
+            year: { type: Type.INTEGER },
+            term: { type: Type.STRING },
+            textbook: { type: Type.STRING },
+            week: { type: Type.INTEGER },
+            lessonNumber: { type: Type.INTEGER },
+            learningArea: { type: Type.STRING },
+            grade: { type: Type.STRING },
+            date: { type: Type.STRING },
+            time: { type: Type.STRING },
+            roll: { type: Type.STRING },
+            strand: { type: Type.STRING },
+            subStrand: { type: Type.STRING },
+            keyInquiryQuestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+            outcomes: { type: Type.ARRAY, items: { type: Type.STRING } },
+            learningResources: { type: Type.ARRAY, items: { type: Type.STRING } },
+            introduction: { type: Type.ARRAY, items: { type: Type.STRING } },
+            lessonDevelopment: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  duration: { type: Type.STRING },
+                  content: { type: Type.ARRAY, items: { type: Type.STRING } }
+                }
               }
-            }
+            },
+            conclusion: { type: Type.ARRAY, items: { type: Type.STRING } },
+            extendedActivities: { type: Type.ARRAY, items: { type: Type.STRING } },
+            teacherSelfEvaluation: { type: Type.STRING }
           },
-          learnerReflection: { type: Type.STRING },
-          teacherReflection: { type: Type.ARRAY, items: { type: Type.STRING } }
-        },
-        required: ["school", "learningArea", "grade", "strand", "subStrand", "outcomes", "introduction", "lessonDevelopment"]
+          required: ["learningArea", "grade", "strand", "subStrand", "outcomes", "introduction", "lessonDevelopment", "conclusion", "extendedActivities"]
+        }
       }
-    }
-  });
+    });
 
-  return JSON.parse(response.text || '{}') as LessonPlan;
+    const jsonStr = cleanJSONResponse(response.text || '{}');
+    return JSON.parse(jsonStr) as LessonPlan;
+  } catch (error) {
+    console.error("Error generating lesson plan:", error);
+    throw error;
+  }
 };
 
 export const generateLessonNotes = async (
@@ -189,14 +158,18 @@ export const generateLessonNotes = async (
   customContext?: string,
   knowledgeContext?: string
 ): Promise<string> => {
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `
-    ${knowledgeContext ? `REFERENCE: \n${knowledgeContext}\n\n` : ''}
-    Task: Generate comprehensive student notes for ${subject} Grade ${grade} on topic: ${topic}. 
-    Style: Clear, exam-oriented, using Kenya CBC standards. 
-    Format: Markdown. Include headings, bullet points, and a summary section.`,
-  });
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `
+      ${knowledgeContext ? `BASE CONTENT: \n${knowledgeContext}\n\n` : ''}
+      WRITE COMPREHENSIVE STUDY NOTES.
+      Subject: ${subject} Grade ${grade}. Topic: ${topic}. Markdown format.`,
+    });
 
-  return response.text || "Failed to generate notes.";
+    return response.text || "Notes generation failed.";
+  } catch (error) {
+    console.error("Error generating notes:", error);
+    throw error;
+  }
 };

@@ -1,292 +1,316 @@
 
-import React, { useState, useMemo } from 'react';
-import { TimetableConfig, TeacherAssignment, LessonSlot, UserProfile } from '../types';
-import { generateMasterTimetable } from '../services/geminiService';
+import React, { useState, useMemo, useEffect } from 'react';
+import { UserProfile, LessonSlot, SubjectGradePair } from '../types';
 
 interface TimetableProps {
   slots: LessonSlot[];
   setSlots: React.Dispatch<React.SetStateAction<LessonSlot[]>>;
   profile: UserProfile;
+  setProfile: (profile: UserProfile) => void;
 }
 
-const Timetable: React.FC<TimetableProps> = ({ slots, setSlots, profile }) => {
-  const [view, setView] = useState<'setup' | 'master' | 'individual'>('setup');
-  const [loading, setLoading] = useState(false);
-  const [selectedTeacher, setSelectedTeacher] = useState<string>('');
-  const [mobileDay, setMobileDay] = useState<string>('Monday');
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
-  const [config, setConfig] = useState<TimetableConfig>(() => {
-    const saved = localStorage.getItem('eduplan_timetable_config');
-    return saved ? JSON.parse(saved) : {
-      daysToTeach: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-      dayStartTime: '07:00',
-      dayEndTime: '16:30',
-      lessonDuration: 40,
-      breaks: [
-        { name: 'ASSEMBLY / CLASS MEETINGS', startTime: '07:00', endTime: '08:20', type: 'activity' },
-        { name: 'SHORT BREAK', startTime: '09:40', endTime: '09:50', type: 'break' },
-        { name: 'LONG BREAK', startTime: '11:10', endTime: '11:30', type: 'break' },
-        { name: 'LUNCH BREAK', startTime: '12:50', endTime: '14:00', type: 'break' },
-        { name: 'CLUBS & SOCIETIES', startTime: '15:20', endTime: '16:00', type: 'activity' },
-        { name: 'GAMES', startTime: '16:00', endTime: '16:30', type: 'activity' }
-      ],
-      constraints: 'Double periods for Science and Creative Arts. Ensure Science labs are prioritized in the morning.'
+interface GridRow {
+  id: string;
+  label: string;
+  duration: number; // in minutes
+  type: 'lesson' | 'break' | 'activity';
+}
+
+const Timetable: React.FC<TimetableProps> = ({ slots, setSlots, profile, setProfile }) => {
+  const [activeView, setActiveView] = useState<'registry' | 'grid'>('grid');
+  const [newSubj, setNewSubj] = useState('');
+  const [newGrd, setNewGrd] = useState('');
+
+  // Configuration for the dynamic grid structure
+  const [gridConfig, setGridConfig] = useState(() => {
+    const saved = localStorage.getItem('eduplan_grid_config');
+    if (saved) return JSON.parse(saved);
+    return {
+      dayStart: '08:20',
+      dayEnd: '16:00',
+      defaultLessonDuration: 40,
+      rows: [
+        { id: '1', label: 'Period 1', duration: 40, type: 'lesson' },
+        { id: '2', label: 'Period 2', duration: 40, type: 'lesson' },
+        { id: '3', label: 'Short Break', duration: 20, type: 'break' },
+        { id: '4', label: 'Period 3', duration: 40, type: 'lesson' },
+        { id: '5', label: 'Period 4', duration: 40, type: 'lesson' },
+        { id: '6', label: 'Lunch Break', duration: 50, type: 'break' },
+        { id: '7', label: 'Period 5', duration: 40, type: 'lesson' },
+      ] as GridRow[]
     };
   });
 
-  const [assignments, setAssignments] = useState<TeacherAssignment[]>(() => {
-    const saved = localStorage.getItem('eduplan_teacher_assignments');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Save config to local storage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('eduplan_grid_config', JSON.stringify(gridConfig));
+  }, [gridConfig]);
 
-  const timePeriods = useMemo(() => {
-    const periods = new Set<string>();
-    config.breaks.forEach(b => periods.add(`${b.startTime}-${b.endTime}`));
-    slots.forEach(s => periods.add(`${s.startTime}-${s.endTime}`));
-    
-    return Array.from(periods).sort((a, b) => {
-      const timeA = a.split('-')[0].replace(':', '');
-      const timeB = b.split('-')[0].replace(':', '');
-      return parseInt(timeA) - parseInt(timeB);
+  // Derived: Calculate the Start/End times for each row based on the sequence
+  const rowsWithTimes = useMemo(() => {
+    let currentMin = (() => {
+      const [h, m] = gridConfig.dayStart.split(':').map(Number);
+      return h * 60 + m;
+    })();
+
+    return gridConfig.rows.map(row => {
+      const startMin = currentMin;
+      const endMin = startMin + row.duration;
+      currentMin = endMin;
+
+      const toTime = (min: number) => {
+        const h = Math.floor(min / 60);
+        const m = min % 60;
+        return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+      };
+
+      return {
+        ...row,
+        startTime: toTime(startMin),
+        endTime: toTime(endMin)
+      };
     });
-  }, [slots, config.breaks]);
+  }, [gridConfig.rows, gridConfig.dayStart]);
 
-  const handleGenerate = async () => {
-    setLoading(true);
-    try {
-      const generated = await generateMasterTimetable(config, assignments);
-      setSlots(generated || []);
-      localStorage.setItem('eduplan_timetable_config', JSON.stringify(config));
-      localStorage.setItem('eduplan_teacher_assignments', JSON.stringify(assignments));
-      setView('master');
-    } catch (err) {
-      alert("Failed to generate timetable. Check assignments.");
-    } finally {
-      setLoading(false);
+  const handlePopulateInitial = () => {
+    const [sh, sm] = gridConfig.dayStart.split(':').map(Number);
+    const [eh, em] = gridConfig.dayEnd.split(':').map(Number);
+    
+    const startTotal = sh * 60 + sm;
+    const endTotal = eh * 60 + em;
+    const totalAvailableMins = endTotal - startTotal;
+    
+    if (totalAvailableMins <= 0) {
+      alert("Closing time must be later than opening time.");
+      return;
+    }
+
+    if (confirm("This will reset your grid structure. Lessons already assigned to these times will remain, but the rows will be re-aligned. Continue?")) {
+      const newRows: GridRow[] = [];
+      let currentMinutesUsed = 0;
+      let lessonCounter = 1;
+
+      while (currentMinutesUsed + gridConfig.defaultLessonDuration <= totalAvailableMins) {
+        newRows.push({
+          id: Math.random().toString(36).substr(2, 9),
+          label: `Period ${lessonCounter++}`,
+          duration: gridConfig.defaultLessonDuration,
+          type: 'lesson'
+        });
+        currentMinutesUsed += gridConfig.defaultLessonDuration;
+      }
+
+      if (currentMinutesUsed < totalAvailableMins) {
+        newRows.push({
+          id: 'end-block',
+          label: 'Day Wrap-up',
+          duration: totalAvailableMins - currentMinutesUsed,
+          type: 'activity'
+        });
+      }
+
+      setGridConfig({ ...gridConfig, rows: newRows });
     }
   };
 
-  const addAssignment = () => {
-    const newAss: TeacherAssignment = {
-      id: Date.now().toString(),
-      teacherName: '',
-      subject: '',
-      grade: '',
-      lessonsPerWeek: 5
+  const updateRowProperty = (id: string, updates: Partial<GridRow>) => {
+    const newRows = gridConfig.rows.map(r => r.id === id ? { ...r, ...updates } : r);
+    setGridConfig({ ...gridConfig, rows: newRows });
+  };
+
+  const addRowAt = (index: number) => {
+    const newRow: GridRow = {
+      id: Math.random().toString(36).substr(2, 9),
+      label: 'New Period',
+      duration: gridConfig.defaultLessonDuration,
+      type: 'lesson'
     };
-    setAssignments([...assignments, newAss]);
+    const newRows = [...gridConfig.rows];
+    newRows.splice(index + 1, 0, newRow);
+    setGridConfig({ ...gridConfig, rows: newRows });
   };
 
-  const updateAssignment = (id: string, updates: Partial<TeacherAssignment>) => {
-    setAssignments(assignments.map(a => a.id === id ? { ...a, ...updates } : a));
+  const deleteRow = (id: string) => {
+    setGridConfig({ ...gridConfig, rows: gridConfig.rows.filter(r => r.id !== id) });
   };
 
-  const deleteAssignment = (id: string) => {
-    setAssignments(assignments.filter(a => a.id !== id));
+  const assignToSlot = (day: string, startTime: string, endTime: string, subject: string, grade: string) => {
+    const otherSlots = slots.filter(s => !(s.day === day && s.startTime === startTime));
+    setSlots([...otherSlots, { day, startTime, endTime, subject, grade, type: 'lesson' }]);
   };
 
-  const getInitials = (name: string) => {
-    if (!name) return "";
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  const clearSlot = (day: string, startTime: string) => {
+    setSlots(slots.filter(s => !(s.day === day && s.startTime === startTime)));
   };
 
-  const uniqueTeachers = Array.from(new Set((slots || []).map(s => s.teacherName))).filter(t => t);
+  const addSubjectToRegistry = () => {
+    if (!newSubj || !newGrd) return;
+    const pair: SubjectGradePair = { id: Date.now().toString(), subject: newSubj, grade: newGrd };
+    setProfile({ ...profile, subjects: [...profile.subjects, pair] });
+    setNewSubj(''); setNewGrd('');
+  };
 
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const handlePrint = () => {
+    window.print();
+  };
 
   return (
-    <div className="p-2 md:p-6 pb-20">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 print:hidden">
-        <h2 className="text-xl md:text-2xl font-bold text-slate-800">School Timetable</h2>
-        <div className="flex bg-slate-100 p-1 rounded-xl w-full md:w-auto overflow-x-auto no-scrollbar">
-          <button onClick={() => setView('setup')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-[10px] md:text-sm font-bold transition whitespace-nowrap ${view === 'setup' ? 'bg-white text-indigo-900 shadow-sm' : 'text-slate-500'}`}>Setup</button>
-          <button onClick={() => setView('master')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-[10px] md:text-sm font-bold transition whitespace-nowrap ${view === 'master' ? 'bg-white text-indigo-900 shadow-sm' : 'text-slate-500'}`}>Master</button>
-          <button onClick={() => setView('individual')} className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-[10px] md:text-sm font-bold transition whitespace-nowrap ${view === 'individual' ? 'bg-white text-indigo-900 shadow-sm' : 'text-slate-500'}`}>Staff</button>
+    <div className="p-4 md:p-8 animate-in fade-in duration-500 overflow-x-hidden">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 print:hidden">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-black text-slate-800 uppercase tracking-tighter">Adaptive Timetable</h2>
+          <p className="text-slate-500 text-[10px] md:text-sm mt-1 uppercase tracking-wider font-bold">Synchronized CBE Scheduler</p>
+        </div>
+        <div className="flex bg-slate-200/50 p-1 rounded-2xl shadow-inner w-full md:w-auto">
+          <button onClick={() => setActiveView('registry')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeView === 'registry' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}`}>LOADS</button>
+          <button onClick={() => setActiveView('grid')} className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl text-[10px] font-black tracking-widest transition-all ${activeView === 'grid' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}`}>GRID</button>
         </div>
       </div>
 
-      {view === 'setup' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 print:hidden">
-          <div className="bg-white p-6 rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm">
-            <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2"><i className="fas fa-cog text-indigo-500"></i> School Structure</h3>
-            <div className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase">First Activity</label>
-                  <input type="time" className="w-full border-slate-200 border p-3 rounded-xl mt-1 bg-slate-50 text-slate-900 font-bold focus:ring-2 focus:ring-indigo-500 outline-none" value={config.dayStartTime} onChange={e => setConfig({...config, dayStartTime: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase">School Day Ends</label>
-                  <input type="time" className="w-full border-slate-200 border p-3 rounded-xl mt-1 bg-slate-50 text-slate-900 font-bold focus:ring-2 focus:ring-indigo-500 outline-none" value={config.dayEndTime} onChange={e => setConfig({...config, dayEndTime: e.target.value})} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase">Period (Mins)</label>
-                  <input type="number" className="w-full border-slate-200 border p-3 rounded-xl mt-1 bg-slate-50 text-slate-900 font-bold focus:ring-2 focus:ring-indigo-500 outline-none text-center" value={config.lessonDuration} onChange={e => setConfig({...config, lessonDuration: parseInt(e.target.value) || 0})} />
-                </div>
-              </div>
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase">AI Constraints</label>
-                <textarea className="w-full border-slate-200 border p-4 rounded-2xl mt-1 h-32 text-sm bg-slate-50 text-slate-900 font-medium focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="e.g. Double periods for Science. Mr. Rotich teaches Grade 8 Science only." value={config.constraints} onChange={e => setConfig({...config, constraints: e.target.value})} />
-              </div>
+      {activeView === 'registry' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 print:hidden">
+          <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200 shadow-sm h-fit">
+            <h3 className="font-black text-slate-800 mb-6 uppercase text-[10px] tracking-widest border-b pb-4">Register Subject</h3>
+            <div className="space-y-4">
+              <input placeholder="Subject" className="w-full border-2 border-slate-50 p-4 rounded-xl bg-slate-50 text-[11px] font-bold outline-none focus:border-indigo-500 transition" value={newSubj} onChange={e => setNewSubj(e.target.value)} />
+              <input placeholder="Grade/Stream" className="w-full border-2 border-slate-50 p-4 rounded-xl bg-slate-50 text-[11px] font-bold outline-none focus:border-indigo-500 transition" value={newGrd} onChange={e => setNewGrd(e.target.value)} />
+              <button onClick={addSubjectToRegistry} className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl hover:bg-indigo-700 transition">Save Registry</button>
             </div>
           </div>
-
-          <div className="bg-white p-6 rounded-2xl md:rounded-3xl border border-slate-200 shadow-sm flex flex-col min-h-[400px]">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-slate-800 flex items-center gap-2"><i className="fas fa-users text-indigo-500"></i> Staff Loads</h3>
-              <button onClick={addAssignment} className="text-indigo-600 text-[10px] font-black bg-indigo-50 px-3 py-1.5 rounded-lg hover:bg-indigo-100">ADD LOAD</button>
+          <div className="lg:col-span-2 bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden h-fit">
+            <div className="p-6 border-b bg-slate-50/50 flex justify-between items-center">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Teaching Workload</span>
             </div>
-            <div className="flex-1 space-y-3 overflow-y-auto max-h-[500px] pr-2 custom-scrollbar">
-              {assignments.map(ass => (
-                <div key={ass.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 relative group hover:border-indigo-200 transition">
-                  <button onClick={() => deleteAssignment(ass.id)} className="absolute -top-1 -right-1 bg-red-500 text-white w-6 h-6 rounded-full flex items-center justify-center shadow-md z-10"><i className="fas fa-times text-[10px]"></i></button>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[8px] font-black text-slate-400 uppercase">Teacher</label>
-                      <select className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-bold" value={ass.teacherName} onChange={e => updateAssignment(ass.id, { teacherName: e.target.value })}>
-                        <option value="">Select Staff</option>
-                        {(profile.onboardedStaff || []).map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[8px] font-black text-slate-400 uppercase">Grade</label>
-                      <select className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs" value={ass.grade} onChange={e => updateAssignment(ass.id, { grade: e.target.value })}>
-                        <option value="">Select Grade</option>
-                        {(profile.grades || []).map(g => <option key={g} value={g}>{g}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[8px] font-black text-slate-400 uppercase">Subject</label>
-                      <select className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs" value={ass.subject} onChange={e => updateAssignment(ass.id, { subject: e.target.value })}>
-                        <option value="">Select Subject</option>
-                        {(profile.subjects || []).map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-[8px] font-black text-slate-400 uppercase">Lsns/Wk</label>
-                      <input type="number" className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs text-center font-bold" value={ass.lessonsPerWeek} onChange={e => updateAssignment(ass.id, { lessonsPerWeek: parseInt(e.target.value) || 0 })} />
-                    </div>
+            <div className="divide-y max-h-[400px] overflow-y-auto custom-scrollbar">
+              {profile.subjects.map(p => (
+                <div key={p.id} className="p-4 md:p-6 flex justify-between items-center hover:bg-slate-50 transition">
+                  <div>
+                    <p className="font-black text-slate-800 text-sm uppercase">{p.subject}</p>
+                    <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest">{p.grade}</p>
                   </div>
+                  <button onClick={() => setProfile({...profile, subjects: profile.subjects.filter(s => s.id !== p.id)})} className="text-slate-200 hover:text-red-500 transition p-2"><i className="fas fa-trash-alt"></i></button>
                 </div>
               ))}
+              {profile.subjects.length === 0 && <p className="p-10 text-center text-slate-400 font-medium italic text-xs uppercase tracking-widest">Registry is empty.</p>}
             </div>
-            <button onClick={handleGenerate} disabled={loading || assignments.length === 0} className="mt-6 w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-indigo-700 transition flex items-center justify-center gap-2">
-              {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-magic"></i>} GENERATE MASTER PLAN
-            </button>
           </div>
         </div>
-      )}
-
-      {(view === 'master' || view === 'individual') && (slots?.length > 0) && (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="flex flex-col md:flex-row justify-between items-stretch md:items-end print:hidden gap-4">
-            {view === 'individual' ? (
-              <div className="flex-1">
-                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Staff Schedule</label>
-                <select className="w-full border p-3 rounded-xl text-sm bg-white font-bold text-indigo-900 shadow-sm" value={selectedTeacher} onChange={e => setSelectedTeacher(e.target.value)}>
-                  <option value="">Select a Staff Member</option>
-                  {uniqueTeachers.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+      ) : (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col items-center justify-between gap-6 print:hidden">
+            <div className="flex flex-wrap gap-4 items-center justify-center w-full">
+              <div className="flex-1 min-w-[120px]">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Starts</label>
+                <input type="time" className="w-full bg-slate-50 border-2 border-slate-100 p-2.5 rounded-xl font-black text-[11px] outline-none" value={gridConfig.dayStart} onChange={e => setGridConfig({...gridConfig, dayStart: e.target.value})} />
               </div>
-            ) : (
-              <div className="flex-1 md:hidden">
-                <label className="text-[10px] font-black text-slate-400 uppercase mb-1 block">Select Day View</label>
-                <div className="flex bg-slate-100 p-1 rounded-xl overflow-x-auto no-scrollbar">
-                  {days.map(d => (
-                    <button key={d} onClick={() => setMobileDay(d)} className={`px-4 py-2 rounded-lg text-[10px] font-black transition-all ${mobileDay === d ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}>
-                      {d.substring(0, 3).toUpperCase()}
-                    </button>
-                  ))}
-                </div>
+              <div className="flex-1 min-w-[120px]">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Ends</label>
+                <input type="time" className="w-full bg-slate-50 border-2 border-slate-100 p-2.5 rounded-xl font-black text-[11px] outline-none" value={gridConfig.dayEnd} onChange={e => setGridConfig({...gridConfig, dayEnd: e.target.value})} />
               </div>
-            )}
-            <button onClick={() => window.print()} className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition flex items-center justify-center gap-3 text-sm">
-              <i className="fas fa-file-pdf"></i> PRINT (A4)
-            </button>
+              <div className="flex-1 min-w-[80px]">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Period (M)</label>
+                <input type="number" className="w-full bg-slate-50 border-2 border-slate-100 p-2.5 rounded-xl font-black text-[11px] outline-none text-center" value={gridConfig.defaultLessonDuration} onChange={e => setGridConfig({...gridConfig, defaultLessonDuration: parseInt(e.target.value) || 0})} />
+              </div>
+            </div>
+            <div className="flex gap-3 w-full">
+              <button onClick={handlePopulateInitial} className="flex-1 bg-indigo-600 text-white py-4 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-xl shadow-indigo-100">Sync Grid</button>
+              <button onClick={handlePrint} className="flex-1 bg-slate-900 text-white py-4 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] flex items-center justify-center gap-2"><i className="fas fa-file-pdf"></i> PRINT</button>
+            </div>
           </div>
 
-          {/* Master Table - Full on Desktop, Day-specific on Mobile */}
-          <div className="bg-white border-2 border-black shadow-2xl overflow-hidden print:border-black print:border-4 max-w-[1200px] mx-auto print:max-w-none print:w-full">
-            <div className="p-6 md:p-10 border-b-4 border-black text-center bg-white">
-              <h1 className="text-xl md:text-3xl font-black text-black uppercase tracking-[0.2em]">{profile.school}</h1>
-              <p className="text-[10px] md:text-sm font-black uppercase tracking-widest text-slate-600 mt-2">
-                {view === 'master' ? 'Master Timetable 2025' : `${selectedTeacher} - Individual Schedule`}
-              </p>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse table-fixed border-black min-w-[800px] md:min-w-full">
-                <thead>
-                  <tr className="bg-slate-50 border-b-4 border-black">
-                    <th className="p-3 border-r-4 border-black w-24 md:w-32 text-[8px] md:text-[10px] font-black uppercase text-black text-center">Time</th>
-                    {/* On mobile, only show selected day, on desktop show all 5 */}
-                    {days.map(day => (
-                      <th key={day} className={`p-4 border-r-4 border-black last:border-r-0 text-lg md:text-xl font-black uppercase text-black ${mobileDay !== day ? 'hidden md:table-cell' : ''}`}>
-                        {day.substring(0, 3)}
+          <div className="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden print:border-black print:rounded-none">
+            <div className="overflow-x-auto relative custom-scrollbar">
+              <table className="w-full text-sm border-collapse print:text-black min-w-[800px] md:min-w-0">
+                <thead className="bg-slate-50 print:bg-transparent">
+                  <tr className="border-b print:border-black">
+                    <th className="p-4 border-r text-left w-24 md:w-32 bg-white print:border-black print:bg-transparent sticky left-0 z-20">
+                      <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Time</span>
+                    </th>
+                    {DAYS.map(day => (
+                      <th key={day} className="p-4 border-r text-center print:border-black">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-900 print:text-black">{day.substring(0,3)}</span>
                       </th>
                     ))}
+                    <th className="p-4 w-40 text-center bg-slate-50 print:hidden">
+                       <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Manage</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {timePeriods.map((period, pIdx) => {
-                    const [start, end] = period.split('-');
-                    const isBreak = config.breaks.find(b => b.startTime === start && b.endTime === end);
-                    
-                    if (isBreak) {
-                      return (
-                        <tr key={period} className="border-b-4 border-black h-12 md:h-16">
-                          <td className="p-1 border-r-4 border-black bg-slate-50 text-[8px] font-black text-black text-center leading-tight">
-                            {start}<br/>{end}
-                          </td>
-                          <td colSpan={5} className="p-2 text-center bg-slate-100 font-black uppercase tracking-[0.4em] md:tracking-[0.8em] text-black text-sm md:text-lg">
-                            {isBreak.name}
-                          </td>
-                        </tr>
-                      );
-                    }
+                  {rowsWithTimes.map((row, idx) => (
+                    <tr key={row.id} className={`${row.type !== 'lesson' ? 'bg-amber-50/40 print:bg-slate-50' : ''} group`}>
+                      <td className="p-4 border-b border-r bg-white font-black print:border-black print:bg-transparent sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
+                        <p className="text-[10px] text-slate-800 leading-none mb-1">{row.startTime}</p>
+                        <p className="text-[8px] text-slate-400 leading-none mb-2">{row.endTime}</p>
+                        <input className="print:hidden text-[8px] bg-slate-100 p-1 w-full rounded font-black uppercase tracking-tighter outline-none mb-1" value={row.label} onChange={e => updateRowProperty(row.id, { label: e.target.value })} />
+                      </td>
 
-                    return (
-                      <tr key={period} className="border-b-4 border-black h-24 md:h-28">
-                        <td className="p-1 border-r-4 border-black bg-slate-50 text-[8px] font-black text-black text-center leading-tight">
-                          {start}<br/>{end}
-                        </td>
-                        {days.map(day => {
-                          const match = slots.find(s => s.day === day && s.startTime === start && s.endTime === end);
-                          const isTeacherVisible = view === 'individual' && selectedTeacher 
-                            ? (match?.teacherName === selectedTeacher)
-                            : true;
-
-                          const content = (match && isTeacherVisible) ? match : null;
-
+                      {DAYS.map(day => {
+                        const slot = slots.find(s => s.day === day && s.startTime === row.startTime);
+                        if (row.type !== 'lesson') {
                           return (
-                            <td key={day} className={`p-2 border-r-4 border-black last:border-r-0 align-middle text-center relative ${mobileDay !== day ? 'hidden md:table-cell' : ''}`}>
-                              {content ? (
-                                <div className="flex flex-col items-center justify-center h-full">
-                                  <p className="text-sm md:text-lg font-black uppercase leading-tight text-black">
-                                    {content.subject.replace(' DOUBLE', '')}
-                                    {content.subject.includes('DOUBLE') && <span className="block text-[6px] md:text-[8px] mt-0.5 tracking-tighter opacity-50 underline">DOUBLE</span>}
-                                  </p>
-                                  <div className="absolute bottom-1 right-1">
-                                    <span className="text-[8px] md:text-[10px] font-black text-black bg-white px-1 border border-black">{getInitials(content.teacherName)}</span>
-                                  </div>
-                                  <div className="absolute top-1 left-1">
-                                     <span className="text-[6px] md:text-[8px] font-black text-slate-400">{content.grade.split(' ')[0]}</span>
-                                  </div>
-                                </div>
-                              ) : null}
+                            <td key={day} className="p-1 border-b border-r print:border-black">
+                               <div className={`p-2 py-4 rounded-xl border-2 border-dashed flex flex-col items-center justify-center font-black uppercase tracking-widest text-[8px] h-full ${
+                                 row.type === 'break' ? 'bg-amber-100/50 border-amber-200 text-amber-700' : 'bg-indigo-50 border-indigo-100 text-indigo-700'
+                               }`}>
+                                 {row.label.substring(0, 10)}
+                               </div>
                             </td>
                           );
-                        })}
-                      </tr>
-                    );
-                  })}
+                        }
+
+                        return (
+                          <td key={day} className="p-1 border-b border-r print:border-black group relative min-h-[80px]">
+                            {slot ? (
+                              <div className="bg-white border-2 border-slate-100 p-2 md:p-3 rounded-xl shadow-sm hover:border-indigo-400 transition h-full flex flex-col justify-center">
+                                 <div className="flex justify-between items-start mb-0.5">
+                                    <p className="font-black text-slate-800 text-[9px] uppercase leading-tight truncate">{slot.subject}</p>
+                                    <button onClick={() => clearSlot(day, row.startTime)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition print:hidden text-[10px]"><i className="fas fa-times"></i></button>
+                                 </div>
+                                 <p className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest">{slot.grade}</p>
+                              </div>
+                            ) : (
+                              <div className="p-2 py-4 rounded-xl border-2 border-dashed border-slate-100 flex items-center justify-center print:hidden h-full">
+                                 <select 
+                                   className="w-full bg-transparent font-black text-[8px] uppercase tracking-widest text-slate-300 outline-none cursor-pointer text-center"
+                                   onChange={(e) => {
+                                     const [subj, grd] = e.target.value.split('|');
+                                     if (subj) assignToSlot(day, row.startTime, row.endTime, subj, grd);
+                                   }}
+                                   value=""
+                                 >
+                                    <option value="">+</option>
+                                    {profile.subjects.map(p => <option key={p.id} value={`${p.subject}|${p.grade}`}>{p.subject.substring(0,10)}</option>)}
+                                 </select>
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+
+                      <td className="p-2 border-b bg-slate-50/30 print:hidden align-middle">
+                         <div className="flex flex-col gap-1.5">
+                            <select 
+                              className="w-full bg-white border border-slate-200 p-1.5 rounded-lg text-[8px] font-black uppercase outline-none"
+                              value={row.type}
+                              onChange={e => updateRowProperty(row.id, { type: e.target.value as any })}
+                            >
+                               <option value="lesson">Teach</option>
+                               <option value="break">Break</option>
+                               <option value="activity">Act</option>
+                            </select>
+                            <div className="flex gap-1.5">
+                               <button onClick={() => addRowAt(idx)} className="flex-1 bg-white border border-slate-200 p-1.5 rounded-lg text-[8px] font-black text-indigo-600"><i className="fas fa-plus"></i></button>
+                               <button onClick={() => deleteRow(row.id)} className="flex-1 bg-white border border-slate-200 p-1.5 rounded-lg text-[8px] font-black text-red-500"><i className="fas fa-trash-alt"></i></button>
+                            </div>
+                         </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
-            </div>
-            <div className="p-4 md:p-6 border-t-4 border-black bg-white flex justify-between items-center text-[8px] md:text-[10px] font-black text-black uppercase tracking-widest">
-               <span>DATE: {new Date().toLocaleDateString('en-GB')}</span>
-               <span className="hidden sm:inline">OFFICIAL CBC TIMETABLE</span>
-               <span className="opacity-30">@EDUPLAN</span>
             </div>
           </div>
         </div>

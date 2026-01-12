@@ -1,4 +1,10 @@
 
+export interface SubjectGradePair {
+  id: string;
+  subject: string;
+  grade: string;
+}
+
 export interface OnboardedTeacher {
   id: string;
   name: string;
@@ -12,41 +18,16 @@ export interface UserProfile {
   tscNumber: string;
   school: string;
   avatar?: string;
-  isMasterAdmin: boolean;
+  subjects: SubjectGradePair[];
   onboardedStaff?: OnboardedTeacher[];
-  subjects?: string[];
+  availableSubjects?: string[];
   grades?: string[];
-}
-
-export interface TeacherAssignment {
-  id: string;
-  teacherName: string;
-  subject: string;
-  grade: string;
-  lessonsPerWeek: number;
-}
-
-export interface BreakPeriod {
-  name: string;
-  startTime: string;
-  endTime: string;
-  type: 'break' | 'activity';
-}
-
-export interface TimetableConfig {
-  daysToTeach: string[];
-  dayStartTime: string;
-  dayEndTime: string;
-  lessonDuration: number;
-  breaks: BreakPeriod[];
-  constraints: string;
 }
 
 export interface LessonSlot {
   day: string;
   startTime: string;
   endTime: string;
-  teacherName: string;
   subject: string;
   grade: string;
   type: 'lesson' | 'break' | 'activity';
@@ -55,16 +36,16 @@ export interface LessonSlot {
 export interface SOWRow {
   week: number;
   lesson: number;
-  date: string;
-  selectedDay?: string;
   strand: string;
   subStrand: string;
   learningOutcomes: string;
-  learningExperiences: string;
-  keyInquiryQuestion: string;
-  resources: string;
-  assessment: string;
+  teachingExperiences: string;
+  keyInquiryQuestions: string;
+  learningResources: string;
+  assessmentMethods: string;
   reflection: string;
+  date?: string;
+  selectedDay?: string;
   isCompleted?: boolean;
   isBreak?: boolean;
 }
@@ -75,6 +56,7 @@ export interface SavedSOW {
   subject: string;
   grade: string;
   term: number;
+  year?: number;
   termStart?: string;
   termEnd?: string;
   halfTermStart?: string;
@@ -109,16 +91,23 @@ export interface KnowledgeDocument {
   date: string;
   category: string;
   isActiveContext: boolean;
+  isSystemDoc?: boolean;
+  officialSourceUrl?: string;
 }
 
 export interface LessonStep {
   title: string;
   duration: string;
-  content: string;
+  content: string[]; // List of activities for that step
 }
 
 export interface LessonPlan {
   school: string;
+  year: number;
+  term: string;
+  textbook: string;
+  week: number;
+  lessonNumber: number;
   learningArea: string;
   grade: string;
   date: string;
@@ -126,11 +115,12 @@ export interface LessonPlan {
   roll: string;
   strand: string;
   subStrand: string;
-  keyInquiryQuestion: string;
+  keyInquiryQuestions: string[];
   outcomes: string[];
   learningResources: string[];
-  introduction: string;
+  introduction: string[];
   lessonDevelopment: LessonStep[];
-  learnerReflection: string;
-  teacherReflection: string[];
+  conclusion: string[];
+  extendedActivities: string[];
+  teacherSelfEvaluation: string;
 }

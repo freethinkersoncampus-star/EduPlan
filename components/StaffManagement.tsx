@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+// Import OnboardedTeacher and update logic to use availableSubjects and grades correctly
 import { OnboardedTeacher, UserProfile } from '../types';
 
 interface StaffManagementProps {
@@ -28,33 +29,39 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ profile, setProfile }
       onboardedDate: new Date().toLocaleDateString()
     };
 
+    // Use onboardedStaff property from updated UserProfile
     const updatedStaff = [...(profile.onboardedStaff || []), staff];
     setProfile({ ...profile, onboardedStaff: updatedStaff });
     setNewStaff({ name: '', tscNumber: '', role: 'Teacher' });
   };
 
   const removeStaff = (id: string) => {
+    // Use onboardedStaff property from updated UserProfile
     const updatedStaff = (profile.onboardedStaff || []).filter(s => s.id !== id);
     setProfile({ ...profile, onboardedStaff: updatedStaff });
   };
 
   const handleAddSubject = () => {
-    if (!newSubject || (profile.subjects || []).includes(newSubject)) return;
-    setProfile({ ...profile, subjects: [...(profile.subjects || []), newSubject] });
+    // Fixed: use availableSubjects instead of subjects to avoid type conflict with SubjectGradePair[]
+    if (!newSubject || (profile.availableSubjects || []).includes(newSubject)) return;
+    setProfile({ ...profile, availableSubjects: [...(profile.availableSubjects || []), newSubject] });
     setNewSubject('');
   };
 
   const removeSubject = (subject: string) => {
-    setProfile({ ...profile, subjects: (profile.subjects || []).filter(s => s !== subject) });
+    // Fixed: use availableSubjects
+    setProfile({ ...profile, availableSubjects: (profile.availableSubjects || []).filter(s => s !== subject) });
   };
 
   const handleAddGrade = () => {
+    // Use grades property from updated UserProfile
     if (!newGrade || (profile.grades || []).includes(newGrade)) return;
     setProfile({ ...profile, grades: [...(profile.grades || []), newGrade] });
     setNewGrade('');
   };
 
   const removeGrade = (grade: string) => {
+    // Use grades property from updated UserProfile
     setProfile({ ...profile, grades: (profile.grades || []).filter(g => g !== grade) });
   };
 
@@ -136,7 +143,8 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ profile, setProfile }
               </button>
             </div>
             <div className="max-h-64 overflow-y-auto pr-2 custom-scrollbar space-y-2">
-              {(profile.subjects || []).map(subject => (
+              {/* Fixed: use availableSubjects to map string array */}
+              {(profile.availableSubjects || []).map(subject => (
                 <div key={subject} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl group">
                   <span className="font-semibold text-slate-700">{subject}</span>
                   <button onClick={() => removeSubject(subject)} className="text-slate-300 hover:text-red-500 transition opacity-0 group-hover:opacity-100">
@@ -144,7 +152,7 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ profile, setProfile }
                   </button>
                 </div>
               ))}
-              {(profile.subjects || []).length === 0 && <p className="text-center text-slate-400 text-xs italic py-4">No subjects added.</p>}
+              {(profile.availableSubjects || []).length === 0 && <p className="text-center text-slate-400 text-xs italic py-4">No subjects added.</p>}
             </div>
           </div>
         </div>
@@ -170,6 +178,7 @@ const StaffManagement: React.FC<StaffManagementProps> = ({ profile, setProfile }
               </button>
             </div>
             <div className="max-h-64 overflow-y-auto pr-2 custom-scrollbar space-y-2">
+              {/* Use grades property */}
               {(profile.grades || []).map(grade => (
                 <div key={grade} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl group">
                   <span className="font-semibold text-slate-700">{grade}</span>
