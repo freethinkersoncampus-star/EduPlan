@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import Sidebar from './components/Sidebar';
-import Dashboard from './components/Dashboard';
-import Timetable from './components/Timetable';
-import SOWGenerator from './components/SOWGenerator';
-import LessonPlanner from './components/LessonPlanner';
-import DocumentLibrary from './components/DocumentLibrary';
-import { LessonSlot, UserProfile, KnowledgeDocument, SOWRow } from './types';
+import Sidebar from './components/Sidebar.tsx';
+import Dashboard from './components/Dashboard.tsx';
+import Timetable from './components/Timetable.tsx';
+import SOWGenerator from './components/SOWGenerator.tsx';
+import LessonPlanner from './components/LessonPlanner.tsx';
+import DocumentLibrary from './components/DocumentLibrary.tsx';
+import { LessonSlot, UserProfile, KnowledgeDocument, SOWRow } from './types.ts';
 
 // Comprehensive National Repository of KICD Rationalized Curriculum Designs (Grades 4-12)
 const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
@@ -104,19 +104,34 @@ const App: React.FC = () => {
   } | null>(null);
   
   const [profile, setProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('eduplan_profile');
-    if (saved) return JSON.parse(saved);
-    return {
-      name: '',
-      tscNumber: '',
-      school: '',
-      subjects: []
-    };
+    try {
+      const saved = localStorage.getItem('eduplan_profile');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          name: parsed.name || '',
+          tscNumber: parsed.tscNumber || '',
+          school: parsed.school || '',
+          subjects: Array.isArray(parsed.subjects) ? parsed.subjects : []
+        };
+      }
+    } catch (e) {
+      console.error("Failed to parse profile", e);
+    }
+    return { name: '', tscNumber: '', school: '', subjects: [] };
   });
 
   const [documents, setDocuments] = useState<KnowledgeDocument[]>(() => {
-    const saved = localStorage.getItem('eduplan_docs');
-    const existingDocs: KnowledgeDocument[] = saved ? JSON.parse(saved) : [];
+    let existingDocs: KnowledgeDocument[] = [];
+    try {
+      const saved = localStorage.getItem('eduplan_docs');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        existingDocs = Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (e) {
+      console.error("Failed to parse documents", e);
+    }
     
     // Refresh System Docs: Filter out old ones and inject current SYSTEM_CURRICULUM_DOCS
     const nonSystemDocs = existingDocs.filter(d => !d.isSystemDoc);
@@ -124,8 +139,16 @@ const App: React.FC = () => {
   });
 
   const [slots, setSlots] = useState<LessonSlot[]>(() => {
-    const saved = localStorage.getItem('eduplan_slots');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('eduplan_slots');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (e) {
+      console.error("Failed to parse slots", e);
+    }
+    return [];
   });
 
   useEffect(() => {
@@ -138,7 +161,7 @@ const App: React.FC = () => {
   useEffect(() => localStorage.setItem('eduplan_profile', JSON.stringify(profile)), [profile]);
   useEffect(() => localStorage.setItem('eduplan_docs', JSON.stringify(documents)), [documents]);
 
-  const knowledgeContext = documents
+  const knowledgeContext = (documents || [])
     .filter(d => d.isActiveContext)
     .map(d => `SOURCE: ${d.title}\nCONTENT: ${d.content}`)
     .join('\n\n---\n\n');
@@ -148,12 +171,25 @@ const App: React.FC = () => {
     setActiveTab('lesson-planner');
   };
 
-  const stats = {
-    sowCount: JSON.parse(localStorage.getItem('eduplan_sow_history') || '[]').length,
-    planCount: JSON.parse(localStorage.getItem('eduplan_plan_history') || '[]').length,
-    subjectCount: profile.subjects.length,
-    nextLesson: slots.length > 0 ? `${slots[0].subject} (${slots[0].grade})` : 'Setup timetable'
+  const getStats = () => {
+    let sowCount = 0;
+    let planCount = 0;
+    try {
+      sowCount = JSON.parse(localStorage.getItem('eduplan_sow_history') || '[]').length;
+      planCount = JSON.parse(localStorage.getItem('eduplan_plan_history') || '[]').length;
+    } catch (e) {
+      console.error("Failed to parse history stats", e);
+    }
+
+    return {
+      sowCount,
+      planCount,
+      subjectCount: profile?.subjects?.length || 0,
+      nextLesson: (slots && slots.length > 0) ? `${slots[0].subject} (${slots[0].grade})` : 'Setup timetable'
+    };
   };
+
+  const stats = getStats();
 
   const renderContent = () => {
     switch (activeTab) {
