@@ -1,10 +1,9 @@
-
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+const supabaseUrl = String(process.env.SUPABASE_URL || '');
+const supabaseAnonKey = String(process.env.SUPABASE_ANON_KEY || '');
 
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey && supabaseUrl !== 'undefined' && supabaseAnonKey !== 'undefined');
 
 if (!isSupabaseConfigured) {
   console.warn(
@@ -13,9 +12,9 @@ if (!isSupabaseConfigured) {
   );
 }
 
-// Initialize only if keys are present, otherwise export null
+// Initialize only if keys are present
 export const supabase = isSupabaseConfigured 
-  ? createClient(supabaseUrl!, supabaseAnonKey!) 
+  ? createClient(supabaseUrl, supabaseAnonKey) 
   : null;
 
 /**
@@ -45,19 +44,8 @@ export const signInWithEmail = async (email: string, password: string) => {
 };
 
 /**
- * Legacy Google Login - kept for compatibility if configured
+ * Sign out the current user
  */
-export const signInWithGoogle = async () => {
-  if (!supabase) throw new Error("Cloud services not configured.");
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: window.location.origin
-    }
-  });
-  if (error) throw error;
-};
-
 export const signOut = async () => {
   if (!supabase) return;
   const { error } = await supabase.auth.signOut();

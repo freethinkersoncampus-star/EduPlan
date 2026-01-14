@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -95,21 +94,17 @@
 <body class="bg-slate-50 text-slate-900 overflow-x-hidden">
     <div id="root"></div>
     <script type="module">
-      // Robust Service Worker registration for various environments
       if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
         window.addEventListener('load', () => {
-          // Avoid registering on domains known to fail (like sandboxed cloud previews)
           const isPreview = window.location.hostname.includes('usercontent.goog') || 
                             window.location.hostname.includes('ai.studio');
           
           if (!isPreview) {
-            navigator.serviceWorker.register('/sw.js').catch(() => {
-                /* Silently fail if environment doesn't support SW */
-            });
+            navigator.serviceWorker.register('/sw.js').catch(() => {});
           }
         });
       }
     </script>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="index.tsx"></script>
 </body>
 </html>

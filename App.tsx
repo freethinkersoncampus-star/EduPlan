@@ -1,15 +1,14 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
-import Sidebar from './components/Sidebar.tsx';
-import Dashboard from './components/Dashboard.tsx';
-import Timetable from './components/Timetable.tsx';
-import SOWGenerator from './components/SOWGenerator.tsx';
-import LessonPlanner from './components/LessonPlanner.tsx';
-import DocumentLibrary from './components/DocumentLibrary.tsx';
-import StaffManagement from './components/StaffManagement.tsx';
-import Login from './components/Login.tsx';
-import { supabase, isSupabaseConfigured, signOut as supabaseSignOut } from './services/supabase.ts';
-import { LessonSlot, UserProfile, KnowledgeDocument, SOWRow } from './types.ts';
+import Sidebar from './components/Sidebar';
+import Dashboard from './components/Dashboard';
+import Timetable from './components/Timetable';
+import SOWGenerator from './components/SOWGenerator';
+import LessonPlanner from './components/LessonPlanner';
+import DocumentLibrary from './components/DocumentLibrary';
+import StaffManagement from './components/StaffManagement';
+import Login from './components/Login';
+import { supabase, isSupabaseConfigured, signOut as supabaseSignOut } from './services/supabase';
+import { LessonSlot, UserProfile, KnowledgeDocument, SOWRow } from './types';
 
 const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
   { id: 'sys-kicd-framework-2025', title: 'National Rationalized Curriculum Framework', content: 'CBE 2025 structure...', type: 'KICD', size: '6.2 MB', date: 'Jan 2025', category: 'Framework', isActiveContext: true, isSystemDoc: true }
@@ -95,7 +94,6 @@ const App: React.FC = () => {
     setSyncStatus('syncing');
     
     try {
-      // Map camelCase to snake_case for DB
       await supabase.from('profiles').upsert({
         id: session.user.id,
         name: profile.name,
