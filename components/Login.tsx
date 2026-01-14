@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { signInWithEmail, signUpWithEmail, isSupabaseConfigured } from '../services/supabase';
+import { signInWithEmail, signUpWithEmail, isSupabaseConfigured, getMissingConfigInfo } from '../services/supabase';
 
 const Login: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -8,10 +8,12 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { missing, hints } = getMissingConfigInfo();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isSupabaseConfigured) {
-      alert("Cloud configuration is missing. Please set SUPABASE_URL and SUPABASE_ANON_KEY.");
+      alert("Configuration is still missing. Please check the diagnostic banner.");
       return;
     }
 
@@ -21,13 +23,13 @@ const Login: React.FC = () => {
     try {
       if (isSignUp) {
         await signUpWithEmail(email, password);
-        alert("Account created! If email confirmation is enabled in your Supabase settings, please check your inbox. Otherwise, you can log in now.");
+        alert("Account created! Please check your email for confirmation if enabled, otherwise you can log in.");
         setIsSignUp(false);
       } else {
         await signInWithEmail(email, password);
       }
     } catch (err: any) {
-      setError(err.message || "Authentication failed. Please check your credentials.");
+      setError(err.message || "Authentication failed.");
     } finally {
       setLoading(false);
     }
@@ -46,9 +48,25 @@ const Login: React.FC = () => {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {!isSupabaseConfigured && (
-            <div className="bg-amber-50 p-4 rounded-2xl border border-amber-100 text-[10px] font-bold text-amber-700 uppercase tracking-widest text-center">
-              <i className="fas fa-exclamation-triangle mr-2"></i>
-              Cloud keys missing. Authentication disabled.
+            <div className="bg-amber-50 p-6 rounded-2xl border border-amber-200 text-left">
+              <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <i className="fas fa-tools"></i> Configuration Diagnostic
+              </p>
+              {missing.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[9px] font-bold text-amber-600 uppercase mb-1">Missing from Vercel:</p>
+                  <ul className="list-disc ml-4 space-y-1">
+                    {missing.map(m => <li key={m} className="text-[10px] font-black text-red-600">{m}</li>)}
+                  </ul>
+                </div>
+              )}
+              {hints.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-amber-200">
+                  <p className="text-[9px] font-bold text-amber-600 uppercase mb-1">Action Required:</p>
+                  {hints.map(h => <p key={h} className="text-[10px] font-bold text-amber-700 leading-tight mb-2">• {h}</p>)}
+                </div>
+              )}
+              <p className="text-[8px] text-amber-500 mt-2 font-bold italic">Note: After fixing in Vercel, you MUST Redeploy.</p>
             </div>
           )}
 

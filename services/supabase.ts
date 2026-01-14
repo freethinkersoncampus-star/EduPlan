@@ -1,36 +1,35 @@
 import { createClient } from '@supabase/supabase-js';
 
-// We look for every possible variation of the names, including the truncated one in the user's screenshot
-const supabaseUrl = String(
-  process.env.SUPABASE_URL || 
-  process.env.NEXT_PUBLIC_SUPABASE_URL || 
-  ''
-).trim();
+const getEnv = (name: string) => {
+  const val = process.env[name];
+  return (val && val !== 'undefined' && val !== 'null') ? String(val).trim() : '';
+};
 
-const supabaseAnonKey = String(
-  process.env.SUPABASE_ANON_KEY || 
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || 
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KE || 
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
-  ''
-).trim();
+export const supabaseUrl = getEnv('SUPABASE_URL');
+export const supabaseAnonKey = getEnv('SUPABASE_ANON_KEY');
+
+export const getMissingConfigInfo = () => {
+  const missing = [];
+  if (!supabaseUrl) missing.push("URL (SUPABASE_URL)");
+  if (!supabaseAnonKey) missing.push("Key (SUPABASE_ANON_KEY)");
+  
+  const hints = [];
+  if (supabaseAnonKey && supabaseAnonKey.startsWith('sb_')) {
+    hints.push("Your Key starts with 'sb_'. Please use the 'anon public' key from Supabase (starts with 'ey').");
+  }
+  if (supabaseUrl && !supabaseUrl.startsWith('https://')) {
+    hints.push("Your URL must start with 'https://'.");
+  }
+  
+  return { missing, hints };
+};
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl && 
   supabaseAnonKey && 
-  supabaseUrl !== 'undefined' && 
-  supabaseAnonKey !== 'undefined' &&
   supabaseUrl.startsWith('https://') &&
-  supabaseAnonKey.length > 20 // Basic check to ensure it's a real key
+  supabaseAnonKey.length > 20
 );
-
-if (!isSupabaseConfigured) {
-  console.warn(
-    'Supabase configuration is missing or incomplete.\n' +
-    'URL Status: ' + (supabaseUrl && supabaseUrl !== 'undefined' ? 'Found' : 'Missing') + '\n' +
-    'Key Status: ' + (supabaseAnonKey && supabaseAnonKey !== 'undefined' ? 'Found' : 'Missing')
-  );
-}
 
 // Initialize only if keys are present and valid
 export const supabase = isSupabaseConfigured 
@@ -41,7 +40,7 @@ export const supabase = isSupabaseConfigured
  * Sign up a new teacher with email and password
  */
 export const signUpWithEmail = async (email: string, password: string) => {
-  if (!supabase) throw new Error("Cloud services not configured. Please check your Vercel Environment Variables.");
+  if (!supabase) throw new Error("Cloud services not configured correctly.");
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -54,7 +53,7 @@ export const signUpWithEmail = async (email: string, password: string) => {
  * Sign in an existing teacher with email and password
  */
 export const signInWithEmail = async (email: string, password: string) => {
-  if (!supabase) throw new Error("Cloud services not configured. Please check your Vercel Environment Variables.");
+  if (!supabase) throw new Error("Cloud services not configured correctly.");
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
