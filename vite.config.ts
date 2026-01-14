@@ -5,7 +5,15 @@ export default defineConfig({
   plugins: [react()],
   define: {
     'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
-    'process.env.SUPABASE_URL': JSON.stringify(process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL),
-    'process.env.SUPABASE_ANON_KEY': JSON.stringify(process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+    'process.env.SUPABASE_URL': JSON.stringify(
+      process.env.SUPABASE_URL || 
+      process.env.NEXT_PUBLIC_SUPABASE_URL
+    ),
+    'process.env.SUPABASE_ANON_KEY': JSON.stringify(
+      process.env.SUPABASE_ANON_KEY || 
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY || 
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KE || 
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    )
   }
 });
