@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { signInWithEmail, signUpWithEmail, isSupabaseConfigured } from '../services/supabase.ts';
+import { signInWithEmail, signUpWithEmail, isSupabaseConfigured } from '../services/supabase';
 
 const Login: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
