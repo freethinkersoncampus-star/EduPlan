@@ -47,33 +47,47 @@ const Login: React.FC = () => {
 
         {!isSupabaseConfigured ? (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-indigo-50 p-8 rounded-[2rem] border-2 border-indigo-100">
+            <div className="bg-indigo-50 p-6 rounded-[2rem] border-2 border-indigo-100">
               <h3 className="text-[11px] font-black text-indigo-900 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <i className="fas fa-link"></i> Cloud Connection Needed
+                <i className="fas fa-shield-alt"></i> Database Connection
               </h3>
               
-              <div className="space-y-6">
-                <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                  I can't find your database keys. Please add these two exact names to your <b>Vercel Project Settings</b>:
+              <div className="space-y-4">
+                <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                  The app is ready, but it can't find your data vault. Please check these settings in your <b>Vercel Project</b>:
                 </p>
 
-                <div className="space-y-4">
-                  <div className="bg-white p-4 rounded-2xl border border-indigo-100">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Variable Name 1</p>
-                    <code className="text-[11px] font-black text-indigo-600 block bg-indigo-50/50 p-2 rounded-lg mb-2 select-all">SUPABASE_URL</code>
-                    <p className="text-[9px] font-bold text-slate-500 italic">Find this in Supabase &rarr; Settings &rarr; API &rarr; Project URL</p>
+                <div className="space-y-3">
+                  <div className={`p-4 rounded-2xl border ${missing.includes('SUPABASE_URL') ? 'bg-white border-red-200' : 'bg-emerald-50 border-emerald-100'}`}>
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable 1</p>
+                      {missing.includes('SUPABASE_URL') ? <i className="fas fa-times-circle text-red-400 text-xs"></i> : <i className="fas fa-check-circle text-emerald-500 text-xs"></i>}
+                    </div>
+                    <code className="text-[10px] font-black text-indigo-600 block mb-1">SUPABASE_URL</code>
+                    <p className="text-[8px] text-slate-500 font-bold">Must start with "https://"</p>
                   </div>
 
-                  <div className="bg-white p-4 rounded-2xl border border-indigo-100">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Variable Name 2</p>
-                    <code className="text-[11px] font-black text-indigo-600 block bg-indigo-50/50 p-2 rounded-lg mb-2 select-all">SUPABASE_ANON_KEY</code>
-                    <p className="text-[9px] font-bold text-slate-500 italic">Find this in Supabase &rarr; Settings &rarr; API &rarr; Anon Public Key</p>
+                  <div className={`p-4 rounded-2xl border ${missing.includes('SUPABASE_ANON_KEY') ? 'bg-white border-red-200' : 'bg-emerald-50 border-emerald-100'}`}>
+                    <div className="flex justify-between items-center mb-1">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable 2</p>
+                      {missing.includes('SUPABASE_ANON_KEY') ? <i className="fas fa-times-circle text-red-400 text-xs"></i> : <i className="fas fa-check-circle text-emerald-500 text-xs"></i>}
+                    </div>
+                    <code className="text-[10px] font-black text-indigo-600 block mb-1">SUPABASE_ANON_KEY</code>
+                    <p className="text-[8px] text-slate-500 font-bold">The very long "anon public" key</p>
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-indigo-100">
-                   <p className="text-xs text-slate-500 font-medium">
-                     Once added, go to <b>Deployments</b> in Vercel and click <b>Redeploy</b> to activate the keys.
+                {hints.length > 0 && (
+                  <div className="bg-amber-50 p-3 rounded-xl border border-amber-100">
+                    {hints.map((hint, i) => (
+                      <p key={i} className="text-[9px] text-amber-700 font-bold leading-tight mb-1">• {hint}</p>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-2 text-center">
+                   <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
+                     If you just added these, you must click <b>Redeploy</b> in Vercel to wake up the app.
                    </p>
                 </div>
               </div>
@@ -140,7 +154,7 @@ const Login: React.FC = () => {
         )}
 
         <p className="text-center text-[9px] text-slate-300 font-bold uppercase tracking-widest mt-12 border-t pt-8">
-          KICD Compliant • 2025 Master Edition
+          KICD Compliant &bull; 2025 Master Edition
         </p>
       </div>
     </div>
