@@ -20,13 +20,13 @@ const Login: React.FC = () => {
     try {
       if (isSignUp) {
         await signUpWithEmail(email, password);
-        alert("Account created! Check your email if verification is required.");
+        alert("Account created! You can now sign in.");
         setIsSignUp(false);
       } else {
         await signInWithEmail(email, password);
       }
     } catch (err: any) {
-      setError(err.message || "Authentication failed.");
+      setError(err.message || "Authentication failed. Check your email/password.");
     } finally {
       setLoading(false);
     }
@@ -49,42 +49,35 @@ const Login: React.FC = () => {
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="bg-indigo-50 p-8 rounded-[2rem] border-2 border-indigo-100">
               <h3 className="text-[11px] font-black text-indigo-900 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <i className="fas fa-cog fa-spin"></i> Final Setup Required
+                <i className="fas fa-link"></i> Cloud Connection Needed
               </h3>
               
               <div className="space-y-6">
                 <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                  To enable your cloud classroom, please add these two variables in your <span className="font-bold text-indigo-600">Vercel Project Settings</span>:
+                  I can't find your database keys. Please add these two exact names to your <b>Vercel Project Settings</b>:
                 </p>
 
                 <div className="space-y-4">
                   <div className="bg-white p-4 rounded-2xl border border-indigo-100">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Variable 1 Name</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Variable Name 1</p>
                     <code className="text-[11px] font-black text-indigo-600 block bg-indigo-50/50 p-2 rounded-lg mb-2 select-all">SUPABASE_URL</code>
-                    <p className="text-[9px] font-bold text-slate-500 italic">Copy "Project URL" from Supabase Settings -> API</p>
+                    <p className="text-[9px] font-bold text-slate-500 italic">Find this in Supabase &rarr; Settings &rarr; API &rarr; Project URL</p>
                   </div>
 
                   <div className="bg-white p-4 rounded-2xl border border-indigo-100">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Variable 2 Name</p>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Variable Name 2</p>
                     <code className="text-[11px] font-black text-indigo-600 block bg-indigo-50/50 p-2 rounded-lg mb-2 select-all">SUPABASE_ANON_KEY</code>
-                    <p className="text-[9px] font-bold text-slate-500 italic">Copy "anon public" key (starts with 'ey') from Supabase</p>
+                    <p className="text-[9px] font-bold text-slate-500 italic">Find this in Supabase &rarr; Settings &rarr; API &rarr; Anon Public Key</p>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t border-indigo-100">
-                   <p className="text-[10px] font-black text-indigo-800 uppercase tracking-widest mb-2 flex items-center gap-2">
-                     <i className="fas fa-check-circle"></i> After Saving:
-                   </p>
                    <p className="text-xs text-slate-500 font-medium">
-                     Go to the <b>Deployments</b> tab in Vercel and click <b>Redeploy</b>.
+                     Once added, go to <b>Deployments</b> in Vercel and click <b>Redeploy</b> to activate the keys.
                    </p>
                 </div>
               </div>
             </div>
-            
-            <p className="text-center mt-8 text-[9px] font-black text-slate-300 uppercase tracking-widest">
-              Waiting for Cloud Connection...
-            </p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5 animate-in fade-in duration-700">
@@ -131,7 +124,7 @@ const Login: React.FC = () => {
               className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all duration-300 flex items-center justify-center gap-3 text-[10px] uppercase tracking-[0.2em] disabled:opacity-50 mt-4"
             >
               {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas fa-${isSignUp ? 'user-plus' : 'sign-in-alt'}`}></i>}
-              {loading ? 'Authenticating...' : isSignUp ? 'Create Teacher Account' : 'Sign In To EduPlan'}
+              {loading ? 'Logging in...' : isSignUp ? 'Create Teacher Account' : 'Sign In To EduPlan'}
             </button>
 
             <div className="text-center mt-6">
