@@ -1,13 +1,5 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { UserProfile, LessonSlot, SubjectGradePair } from '../types';
-
-interface TimetableProps {
-  slots: LessonSlot[];
-  setSlots: React.Dispatch<React.SetStateAction<LessonSlot[]>>;
-  profile: UserProfile;
-  setProfile: (profile: UserProfile) => void;
-}
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
@@ -16,6 +8,13 @@ interface GridRow {
   label: string;
   duration: number; // in minutes
   type: 'lesson' | 'break' | 'activity';
+}
+
+interface TimetableProps {
+  slots: LessonSlot[];
+  setSlots: React.Dispatch<React.SetStateAction<LessonSlot[]>>;
+  profile: UserProfile;
+  setProfile: (profile: UserProfile) => void;
 }
 
 const Timetable: React.FC<TimetableProps> = ({ slots, setSlots, profile, setProfile }) => {
@@ -160,7 +159,7 @@ const Timetable: React.FC<TimetableProps> = ({ slots, setSlots, profile, setProf
     <div className="p-4 md:p-8 animate-in fade-in duration-500 overflow-x-hidden">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4 print:hidden">
         <div>
-          <h2 className="text-2xl md:text-3xl font-black text-slate-800 uppercase tracking-tighter">Adaptive Timetable</h2>
+          <h2 className="text-2xl md:text-3xl font-black text-slate-800 uppercase tracking-tighter text-black">Adaptive Timetable</h2>
           <p className="text-slate-500 text-[10px] md:text-sm mt-1 uppercase tracking-wider font-bold">Synchronized CBE Scheduler</p>
         </div>
         <div className="flex bg-slate-200/50 p-1 rounded-2xl shadow-inner w-full md:w-auto">
@@ -233,7 +232,7 @@ const Timetable: React.FC<TimetableProps> = ({ slots, setSlots, profile, setProf
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-900 print:text-black">{day.substring(0,3)}</span>
                       </th>
                     ))}
-                    <th className="p-4 w-40 text-center bg-slate-50 print:hidden">
+                    <th className="p-4 w-44 text-center bg-slate-50 print:hidden">
                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Manage</span>
                     </th>
                   </tr>
@@ -255,7 +254,7 @@ const Timetable: React.FC<TimetableProps> = ({ slots, setSlots, profile, setProf
                                <div className={`p-2 py-4 rounded-xl border-2 border-dashed flex flex-col items-center justify-center font-black uppercase tracking-widest text-[8px] h-full ${
                                  row.type === 'break' ? 'bg-amber-100/50 border-amber-200 text-amber-700' : 'bg-indigo-50 border-indigo-100 text-indigo-700'
                                }`}>
-                                 {row.label.substring(0, 10)}
+                                 {row.label}
                                </div>
                             </td>
                           );
@@ -266,23 +265,23 @@ const Timetable: React.FC<TimetableProps> = ({ slots, setSlots, profile, setProf
                             {slot ? (
                               <div className="bg-white border-2 border-slate-100 p-2 md:p-3 rounded-xl shadow-sm hover:border-indigo-400 transition h-full flex flex-col justify-center">
                                  <div className="flex justify-between items-start mb-0.5">
-                                    <p className="font-black text-slate-800 text-[9px] uppercase leading-tight truncate">{slot.subject}</p>
+                                    <p className="font-black text-slate-950 text-[10px] uppercase leading-tight">{slot.subject}</p>
                                     <button onClick={() => clearSlot(day, row.startTime)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition print:hidden text-[10px]"><i className="fas fa-times"></i></button>
                                  </div>
-                                 <p className="text-[8px] font-bold text-indigo-500 uppercase tracking-widest">{slot.grade}</p>
+                                 <p className="text-[8px] font-bold text-indigo-600 uppercase tracking-widest">{slot.grade}</p>
                               </div>
                             ) : (
-                              <div className="p-2 py-4 rounded-xl border-2 border-dashed border-slate-100 flex items-center justify-center print:hidden h-full">
+                              <div className="p-2 py-4 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center print:hidden h-full hover:border-indigo-300 transition-colors">
                                  <select 
-                                   className="w-full bg-transparent font-black text-[8px] uppercase tracking-widest text-slate-300 outline-none cursor-pointer text-center"
+                                   className="w-full bg-transparent font-black text-[9px] uppercase tracking-widest text-slate-400 outline-none cursor-pointer text-center appearance-none"
                                    onChange={(e) => {
                                      const [subj, grd] = e.target.value.split('|');
                                      if (subj) assignToSlot(day, row.startTime, row.endTime, subj, grd);
                                    }}
                                    value=""
                                  >
-                                    <option value="">+</option>
-                                    {profile.subjects.map(p => <option key={p.id} value={`${p.subject}|${p.grade}`}>{p.subject.substring(0,10)}</option>)}
+                                    <option value="" className="text-slate-200">+</option>
+                                    {profile.subjects.map(p => <option key={p.id} value={`${p.subject}|${p.grade}`} className="text-slate-900">{p.subject} — {p.grade}</option>)}
                                  </select>
                               </div>
                             )}
@@ -292,15 +291,24 @@ const Timetable: React.FC<TimetableProps> = ({ slots, setSlots, profile, setProf
 
                       <td className="p-2 border-b bg-slate-50/30 print:hidden align-middle">
                          <div className="flex flex-col gap-1.5">
-                            <select 
-                              className="w-full bg-white border border-slate-200 p-1.5 rounded-lg text-[8px] font-black uppercase outline-none"
-                              value={row.type}
-                              onChange={e => updateRowProperty(row.id, { type: e.target.value as any })}
-                            >
-                               <option value="lesson">Teach</option>
-                               <option value="break">Break</option>
-                               <option value="activity">Act</option>
-                            </select>
+                            <div className="flex gap-1">
+                                <input 
+                                  type="number" 
+                                  className="w-12 bg-white border border-slate-200 p-1.5 rounded-lg text-[9px] font-black outline-none focus:border-indigo-500"
+                                  value={row.duration}
+                                  onChange={e => updateRowProperty(row.id, { duration: parseInt(e.target.value) || 0 })}
+                                  title="Duration (mins)"
+                                />
+                                <select 
+                                  className="flex-1 bg-white border border-slate-200 p-1.5 rounded-lg text-[8px] font-black uppercase outline-none"
+                                  value={row.type}
+                                  onChange={e => updateRowProperty(row.id, { type: e.target.value as any })}
+                                >
+                                   <option value="lesson">Teach</option>
+                                   <option value="break">Break</option>
+                                   <option value="activity">Act</option>
+                                </select>
+                            </div>
                             <div className="flex gap-1.5">
                                <button onClick={() => addRowAt(idx)} className="flex-1 bg-white border border-slate-200 p-1.5 rounded-lg text-[8px] font-black text-indigo-600"><i className="fas fa-plus"></i></button>
                                <button onClick={() => deleteRow(row.id)} className="flex-1 bg-white border border-slate-200 p-1.5 rounded-lg text-[8px] font-black text-red-500"><i className="fas fa-trash-alt"></i></button>

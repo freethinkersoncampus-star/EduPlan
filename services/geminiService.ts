@@ -1,10 +1,10 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { SOWRow, LessonPlan } from "../types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const cleanJSONResponse = (text: string) => {
+  // Handles cases where the model might still wrap JSON in markdown despite the mimeType setting
   return text.replace(/```json/g, "").replace(/```/g, "").trim();
 };
 
@@ -85,24 +85,32 @@ export const generateLessonPlan = async (
 ): Promise<LessonPlan> => {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview', // Upgraded to Pro for more reliable complex JSON generation
       contents: `
       ${knowledgeContext ? `REFERENCE MATERIALS: \n${knowledgeContext}\n\n` : ''}
-      GENERATE A KENYAN CBE LESSON PLAN FOLLOWING THIS PRECISE KICD FORMAT:
+      ACT AS A KICD PEDAGOGICAL EXPERT.
+      GENERATE A KENYAN CBE (COMPETENCY BASED EDUCATION) LESSON PLAN.
       
-      Learning Area: ${subject}, Grade: ${grade}. Topic: ${strand} -> ${subStrand}.
-      
-      MANDATORY SECTIONS:
-      1. Outcomes: List starting with "By the end of the lesson, learners should be able to:".
-      2. Organization of Learning:
-         - Introduction (5 mins): Specific activities.
-         - Lesson Development (30 mins): 4 distinct steps with titles and durations.
-         - Conclusion (5 mins): Brief summary activities.
-      3. Extended Activities: Creative or research-based follow-ups.
-      4. Key Inquiry Questions: Specific questions for the lesson.
+      CONTEXT:
+      - Learning Area: ${subject}
+      - Grade: ${grade}
+      - Topic (Strand): ${strand}
+      - Sub-Topic (Sub-Strand): ${subStrand}
+      - School: ${schoolName}
+
+      MANDATORY CBE STRUCTURE:
+      1. Specific Learning Outcomes: Must be actionable and learner-centered.
+      2. Key Inquiry Questions: Must stimulate critical thinking.
+      3. Learning Resources: Suggest relevant materials/textbooks.
+      4. Organization of Learning:
+         - Introduction (5 mins): Engagement activity.
+         - Lesson Development (30 mins): Precisely 4 steps with specific learner-centered activities.
+         - Conclusion (5 mins): Summary and reflection.
+      5. Extended Activities: Community service learning or home-based activities.
       `,
       config: {
         responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 4000 }, // Allow model to reason through the complex pedagogical structure
         responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -131,14 +139,19 @@ export const generateLessonPlan = async (
                   title: { type: Type.STRING },
                   duration: { type: Type.STRING },
                   content: { type: Type.ARRAY, items: { type: Type.STRING } }
-                }
+                },
+                required: ["title", "duration", "content"]
               }
             },
             conclusion: { type: Type.ARRAY, items: { type: Type.STRING } },
             extendedActivities: { type: Type.ARRAY, items: { type: Type.STRING } },
             teacherSelfEvaluation: { type: Type.STRING }
           },
-          required: ["learningArea", "grade", "strand", "subStrand", "outcomes", "introduction", "lessonDevelopment", "conclusion", "extendedActivities"]
+          required: [
+            "school", "year", "term", "learningArea", "grade", "strand", "subStrand", 
+            "outcomes", "introduction", "lessonDevelopment", "conclusion", 
+            "extendedActivities", "keyInquiryQuestions", "learningResources"
+          ]
         }
       }
     });
