@@ -1,14 +1,31 @@
 import React, { useState } from 'react';
-import { signInWithEmail, signUpWithEmail, isSupabaseConfigured, getMissingConfigInfo } from '../services/supabase';
+import { 
+  signInWithEmail, 
+  signUpWithEmail, 
+  isSupabaseConfigured, 
+  getMissingConfigInfo, 
+  saveManualConfig, 
+  isUsingManualConfig,
+  clearManualConfig
+} from '../services/supabase';
 
 const Login: React.FC = () => {
   const [isSignUp, setIsSignUp] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const [manualUrl, setManualUrl] = useState('');
+  const [manualKey, setManualKey] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { missing, hints } = getMissingConfigInfo();
+
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualUrl || !manualKey) return alert("Please paste both the URL and the Key.");
+    saveManualConfig(manualUrl, manualKey);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,47 +62,83 @@ const Login: React.FC = () => {
           <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em]">CBE Master Platform</p>
         </div>
 
+        {isUsingManualConfig && (
+          <div className="mb-6 bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex justify-between items-center">
+             <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest flex items-center gap-2">
+               <i className="fas fa-check-circle"></i> Manual Override Active
+             </p>
+             <button onClick={clearManualConfig} className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline">Reset</button>
+          </div>
+        )}
+
         {!isSupabaseConfigured ? (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-amber-50 p-6 rounded-[2rem] border-2 border-amber-100 mb-6">
-              <h3 className="text-[11px] font-black text-amber-900 uppercase tracking-widest mb-3 flex items-center gap-2">
-                <i className="fas fa-exclamation-triangle"></i> Environment Check
-              </h3>
-              <p className="text-[10px] text-amber-800 leading-relaxed font-bold">
-                In Vercel Settings, click <b>Edit</b> on your keys and make sure the <b>"Production"</b> checkbox is checked. 
-              </p>
-              <p className="text-[9px] text-amber-700 mt-2 italic font-medium">
-                Right now, your keys are set to "Preview" only, which hides them from your main website.
-              </p>
-            </div>
-
-            <div className="bg-indigo-50 p-6 rounded-[2rem] border-2 border-indigo-100">
-              <div className="space-y-4">
-                <div className="space-y-3">
-                  <div className={`p-4 rounded-2xl border ${missing.includes('SUPABASE_URL') ? 'bg-white border-red-200' : 'bg-emerald-50 border-emerald-100'}`}>
-                    <div className="flex justify-between items-center mb-1">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable 1</p>
-                      {missing.includes('SUPABASE_URL') ? <i className="fas fa-times-circle text-red-400 text-xs"></i> : <i className="fas fa-check-circle text-emerald-500 text-xs"></i>}
-                    </div>
-                    <code className="text-[10px] font-black text-indigo-600 block mb-1">SUPABASE_URL</code>
-                  </div>
-
-                  <div className={`p-4 rounded-2xl border ${missing.includes('SUPABASE_ANON_KEY') ? 'bg-white border-red-200' : 'bg-emerald-50 border-emerald-100'}`}>
-                    <div className="flex justify-between items-center mb-1">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable 2</p>
-                      {missing.includes('SUPABASE_ANON_KEY') ? <i className="fas fa-times-circle text-red-400 text-xs"></i> : <i className="fas fa-check-circle text-emerald-500 text-xs"></i>}
-                    </div>
-                    <code className="text-[10px] font-black text-indigo-600 block mb-1">SUPABASE_ANON_KEY</code>
-                  </div>
+            {showManual ? (
+              <form onSubmit={handleManualSubmit} className="space-y-4 bg-indigo-50 p-6 rounded-[2rem] border-2 border-indigo-200">
+                <h3 className="text-[11px] font-black text-indigo-900 uppercase tracking-widest mb-2">Manual Connection</h3>
+                <div>
+                   <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">Supabase URL</label>
+                   <input 
+                     className="w-full bg-white p-3 rounded-xl border border-indigo-100 text-[10px] font-bold outline-none" 
+                     placeholder="https://abc.supabase.co"
+                     value={manualUrl}
+                     onChange={e => setManualUrl(e.target.value)}
+                   />
+                </div>
+                <div>
+                   <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">Anon Key</label>
+                   <textarea 
+                     className="w-full bg-white p-3 rounded-xl border border-indigo-100 text-[10px] font-bold outline-none min-h-[100px]" 
+                     placeholder="eyJhbGciOi..."
+                     value={manualKey}
+                     onChange={e => setManualKey(e.target.value)}
+                   />
+                </div>
+                <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg">Save & Connect</button>
+                <button type="button" onClick={() => setShowManual(false)} className="w-full text-[9px] font-black text-slate-400 uppercase tracking-widest py-2">Back to Guide</button>
+              </form>
+            ) : (
+              <div className="space-y-6">
+                <div className="bg-amber-50 p-6 rounded-[2rem] border-2 border-amber-100">
+                  <h3 className="text-[11px] font-black text-amber-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <i className="fas fa-exclamation-triangle"></i> Environment Issue
+                  </h3>
+                  <p className="text-[10px] text-amber-800 leading-relaxed font-bold">
+                    In your Vercel Screenshot, your keys say <b>"Preview"</b>. 
+                  </p>
+                  <p className="text-[9px] text-amber-700 mt-2 font-medium">
+                    You must click <b>Edit</b> on them and check the <b>"Production"</b> box, then <b>Redeploy</b>.
+                  </p>
                 </div>
 
-                <div className="pt-2 text-center">
-                   <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
-                     After fixing the Production checkbox, you <b>MUST CLICK REDEPLOY</b> in Vercel.
-                   </p>
+                <div className="bg-indigo-50 p-6 rounded-[2rem] border-2 border-indigo-100">
+                  <div className="space-y-3">
+                    <div className={`p-4 rounded-2xl border ${missing.includes('SUPABASE_URL') ? 'bg-white border-red-200 shadow-sm' : 'bg-emerald-50 border-emerald-100'}`}>
+                      <div className="flex justify-between items-center mb-1">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable 1</p>
+                        {missing.includes('SUPABASE_URL') ? <i className="fas fa-times-circle text-red-400 text-xs"></i> : <i className="fas fa-check-circle text-emerald-500 text-xs"></i>}
+                      </div>
+                      <code className="text-[10px] font-black text-indigo-600 block">SUPABASE_URL</code>
+                    </div>
+
+                    <div className={`p-4 rounded-2xl border ${missing.includes('SUPABASE_ANON_KEY') ? 'bg-white border-red-200 shadow-sm' : 'bg-emerald-50 border-emerald-100'}`}>
+                      <div className="flex justify-between items-center mb-1">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable 2</p>
+                        {missing.includes('SUPABASE_ANON_KEY') ? <i className="fas fa-times-circle text-red-400 text-xs"></i> : <i className="fas fa-check-circle text-emerald-500 text-xs"></i>}
+                      </div>
+                      <code className="text-[10px] font-black text-indigo-600 block">SUPABASE_ANON_KEY</code>
+                    </div>
+                  </div>
+
+                  <button 
+                    onClick={() => setShowManual(true)}
+                    className="w-full mt-6 bg-indigo-600/10 text-indigo-700 border-2 border-indigo-200 border-dashed py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-white transition"
+                  >
+                    Help! I've added them but it still shows red
+                  </button>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5 animate-in fade-in duration-700">

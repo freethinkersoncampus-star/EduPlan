@@ -1,11 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
 
-/**
- * We look for the keys in process.env (which Vite replaces during build).
- * If the strings are empty, it means the keys weren't found during the Vercel build.
- */
-export const supabaseUrl = (process.env.SUPABASE_URL || '').trim();
-export const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || '').trim();
+// Get keys from either Vercel (process.env) or Manual Local Storage fallback
+const getUrl = () => {
+  const local = localStorage.getItem('eduplan_manual_url');
+  if (local) return local.trim();
+  return (process.env.SUPABASE_URL || '').trim();
+};
+
+const getKey = () => {
+  const local = localStorage.getItem('eduplan_manual_key');
+  if (local) return local.trim();
+  return (process.env.SUPABASE_ANON_KEY || '').trim();
+};
+
+export const supabaseUrl = getUrl();
+export const supabaseAnonKey = getKey();
+
+export const saveManualConfig = (url: string, key: string) => {
+  localStorage.setItem('eduplan_manual_url', url.trim());
+  localStorage.setItem('eduplan_manual_key', key.trim());
+  window.location.reload(); // Refresh to apply keys
+};
+
+export const clearManualConfig = () => {
+  localStorage.removeItem('eduplan_manual_url');
+  localStorage.removeItem('eduplan_manual_key');
+  window.location.reload();
+};
 
 export const getMissingConfigInfo = () => {
   const missing = [];
@@ -14,12 +35,8 @@ export const getMissingConfigInfo = () => {
   
   const hints = [];
   if (supabaseUrl && !supabaseUrl.startsWith('https://')) {
-    hints.push("The URL is missing 'https://' at the start.");
+    hints.push("The URL must start with 'https://'.");
   }
-  if (supabaseAnonKey && supabaseAnonKey.length < 50) {
-    hints.push("The Key looks too short. Make sure you copied the full 'anon' key.");
-  }
-  
   return { missing, hints };
 };
 
@@ -29,6 +46,8 @@ export const isSupabaseConfigured = Boolean(
   supabaseUrl.startsWith('https://') &&
   supabaseAnonKey.length > 20
 );
+
+export const isUsingManualConfig = Boolean(localStorage.getItem('eduplan_manual_url'));
 
 // Initialize client
 export const supabase = isSupabaseConfigured 
