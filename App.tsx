@@ -7,7 +7,7 @@ import LessonPlanner from './components/LessonPlanner';
 import DocumentLibrary from './components/DocumentLibrary';
 import StaffManagement from './components/StaffManagement';
 import Login from './components/Login';
-import { supabase, isSupabaseConfigured, signOut as supabaseSignOut } from './services/supabase';
+import { supabase, isSupabaseConfigured, signOut as supabaseSignOut, hasSystemConfig, isUsingManualConfig, clearManualConfig } from './services/supabase';
 import { LessonSlot, UserProfile, KnowledgeDocument, SOWRow } from './types';
 
 const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
@@ -228,7 +228,7 @@ const App: React.FC = () => {
               </div>
               <button onClick={() => setIsProfileModalOpen(false)} className="w-10 h-10 rounded-2xl bg-white/10 flex items-center justify-center hover:bg-white/20 transition"><i className="fas fa-times"></i></button>
             </div>
-            <div className="p-10 space-y-6">
+            <div className="p-10 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 ml-1">Full Legal Name</label>
                 <input type="text" className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-sm font-black outline-none focus:border-indigo-600 transition" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} placeholder="e.g. Ms. Jane Doe" />
@@ -241,6 +241,30 @@ const App: React.FC = () => {
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 ml-1">Current Institution</label>
                 <input type="text" className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-sm font-black outline-none focus:border-indigo-600 transition" value={profile.school} onChange={e => setProfile({...profile, school: e.target.value})} placeholder="Mombasa Academy" />
               </div>
+
+              <div className="pt-6 border-t">
+                 <h4 className="text-[10px] font-black uppercase text-slate-400 mb-4 tracking-widest">Connectivity Diagnostics</h4>
+                 <div className="bg-slate-50 p-4 rounded-2xl space-y-3">
+                    <div className="flex justify-between items-center">
+                       <span className="text-[9px] font-bold text-slate-500 uppercase">System Config:</span>
+                       <span className={`text-[9px] font-black uppercase ${hasSystemConfig ? 'text-emerald-500' : 'text-red-400'}`}>
+                         {hasSystemConfig ? 'Linked' : 'Not Found'}
+                       </span>
+                    </div>
+                    {isUsingManualConfig && (
+                      <div className="flex justify-between items-center border-t pt-3 border-slate-200">
+                         <span className="text-[9px] font-bold text-indigo-600 uppercase">Manual Override:</span>
+                         <button onClick={clearManualConfig} className="text-[9px] font-black bg-red-100 text-red-600 px-3 py-1 rounded-lg uppercase tracking-widest">Clear</button>
+                      </div>
+                    )}
+                 </div>
+                 {!hasSystemConfig && (
+                   <p className="text-[8px] text-amber-600 font-bold mt-2 uppercase text-center leading-relaxed">
+                     System keys missing. Teachers will see setup screen until "Production" keys are fixed in Vercel.
+                   </p>
+                 )}
+              </div>
+
               <button onClick={() => setIsProfileModalOpen(false)} className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition duration-300 mt-4">Save & Sync Profile</button>
             </div>
           </div>

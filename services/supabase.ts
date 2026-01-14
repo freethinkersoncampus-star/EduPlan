@@ -1,16 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Get keys from either Vercel (process.env) or Manual Local Storage fallback
+// 1. First, try the "System" keys (from Vercel build)
+const systemUrl = (process.env.SUPABASE_URL || '').trim();
+const systemKey = (process.env.SUPABASE_ANON_KEY || '').trim();
+
+// 2. Second, check if there's a manual override in this specific browser
 const getUrl = () => {
-  const local = localStorage.getItem('eduplan_manual_url');
-  if (local) return local.trim();
-  return (process.env.SUPABASE_URL || '').trim();
+  if (systemUrl && systemUrl.startsWith('https://')) return systemUrl;
+  return (localStorage.getItem('eduplan_manual_url') || '').trim();
 };
 
 const getKey = () => {
-  const local = localStorage.getItem('eduplan_manual_key');
-  if (local) return local.trim();
-  return (process.env.SUPABASE_ANON_KEY || '').trim();
+  if (systemKey && systemKey.length > 20) return systemKey;
+  return (localStorage.getItem('eduplan_manual_key') || '').trim();
 };
 
 export const supabaseUrl = getUrl();
@@ -19,7 +21,7 @@ export const supabaseAnonKey = getKey();
 export const saveManualConfig = (url: string, key: string) => {
   localStorage.setItem('eduplan_manual_url', url.trim());
   localStorage.setItem('eduplan_manual_key', key.trim());
-  window.location.reload(); // Refresh to apply keys
+  window.location.reload(); 
 };
 
 export const clearManualConfig = () => {
@@ -47,7 +49,9 @@ export const isSupabaseConfigured = Boolean(
   supabaseAnonKey.length > 20
 );
 
-export const isUsingManualConfig = Boolean(localStorage.getItem('eduplan_manual_url'));
+// Only counts as manual if we didn't find system keys
+export const isUsingManualConfig = Boolean(!systemUrl && localStorage.getItem('eduplan_manual_url'));
+export const hasSystemConfig = Boolean(systemUrl && systemKey);
 
 // Initialize client
 export const supabase = isSupabaseConfigured 
