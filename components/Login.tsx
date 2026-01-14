@@ -47,16 +47,20 @@ const Login: React.FC = () => {
 
         {!isSupabaseConfigured ? (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-indigo-50 p-6 rounded-[2rem] border-2 border-indigo-100">
-              <h3 className="text-[11px] font-black text-indigo-900 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <i className="fas fa-shield-alt"></i> Database Connection
+            <div className="bg-amber-50 p-6 rounded-[2rem] border-2 border-amber-100 mb-6">
+              <h3 className="text-[11px] font-black text-amber-900 uppercase tracking-widest mb-3 flex items-center gap-2">
+                <i className="fas fa-exclamation-triangle"></i> Environment Check
               </h3>
-              
-              <div className="space-y-4">
-                <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                  The app is ready, but it can't find your data vault. Please check these settings in your <b>Vercel Project</b>:
-                </p>
+              <p className="text-[10px] text-amber-800 leading-relaxed font-bold">
+                In Vercel Settings, click <b>Edit</b> on your keys and make sure the <b>"Production"</b> checkbox is checked. 
+              </p>
+              <p className="text-[9px] text-amber-700 mt-2 italic font-medium">
+                Right now, your keys are set to "Preview" only, which hides them from your main website.
+              </p>
+            </div>
 
+            <div className="bg-indigo-50 p-6 rounded-[2rem] border-2 border-indigo-100">
+              <div className="space-y-4">
                 <div className="space-y-3">
                   <div className={`p-4 rounded-2xl border ${missing.includes('SUPABASE_URL') ? 'bg-white border-red-200' : 'bg-emerald-50 border-emerald-100'}`}>
                     <div className="flex justify-between items-center mb-1">
@@ -64,7 +68,6 @@ const Login: React.FC = () => {
                       {missing.includes('SUPABASE_URL') ? <i className="fas fa-times-circle text-red-400 text-xs"></i> : <i className="fas fa-check-circle text-emerald-500 text-xs"></i>}
                     </div>
                     <code className="text-[10px] font-black text-indigo-600 block mb-1">SUPABASE_URL</code>
-                    <p className="text-[8px] text-slate-500 font-bold">Must start with "https://"</p>
                   </div>
 
                   <div className={`p-4 rounded-2xl border ${missing.includes('SUPABASE_ANON_KEY') ? 'bg-white border-red-200' : 'bg-emerald-50 border-emerald-100'}`}>
@@ -73,21 +76,12 @@ const Login: React.FC = () => {
                       {missing.includes('SUPABASE_ANON_KEY') ? <i className="fas fa-times-circle text-red-400 text-xs"></i> : <i className="fas fa-check-circle text-emerald-500 text-xs"></i>}
                     </div>
                     <code className="text-[10px] font-black text-indigo-600 block mb-1">SUPABASE_ANON_KEY</code>
-                    <p className="text-[8px] text-slate-500 font-bold">The very long "anon public" key</p>
                   </div>
                 </div>
 
-                {hints.length > 0 && (
-                  <div className="bg-amber-50 p-3 rounded-xl border border-amber-100">
-                    {hints.map((hint, i) => (
-                      <p key={i} className="text-[9px] text-amber-700 font-bold leading-tight mb-1">• {hint}</p>
-                    ))}
-                  </div>
-                )}
-
                 <div className="pt-2 text-center">
                    <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
-                     If you just added these, you must click <b>Redeploy</b> in Vercel to wake up the app.
+                     After fixing the Production checkbox, you <b>MUST CLICK REDEPLOY</b> in Vercel.
                    </p>
                 </div>
               </div>
