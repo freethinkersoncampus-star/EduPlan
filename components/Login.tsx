@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   signInWithEmail, 
   signUpWithEmail, 
@@ -14,16 +14,35 @@ const Login: React.FC = () => {
   const [showManual, setShowManual] = useState(false);
   const [manualUrl, setManualUrl] = useState('');
   const [manualKey, setManualKey] = useState('');
+  const [smartPaste, setSmartPaste] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPreview, setIsPreview] = useState(false);
 
-  const { missing, hints } = getMissingConfigInfo();
+  useEffect(() => {
+    // Detect if running in AI Studio or similar preview environment
+    const host = window.location.hostname;
+    if (host.includes('ai.studio') || host.includes('googleusercontent')) {
+      setIsPreview(true);
+    }
+  }, []);
+
+  const { missing } = getMissingConfigInfo();
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualUrl || !manualKey) return alert("Please paste both the URL and the Key.");
+    if (smartPaste) {
+      // Try to extract URL and Key from a combined paste
+      const urlMatch = smartPaste.match(/https:\/\/[a-z0-9-]+\.supabase\.co/i);
+      const keyMatch = smartPaste.match(/[a-zA-Z0-9\-_]{50,}/); // Look for long string
+      if (urlMatch && keyMatch) {
+        saveManualConfig(urlMatch[0], keyMatch[0]);
+        return;
+      }
+    }
+    if (!manualUrl || !manualKey) return alert("Please provide both the URL and the Key.");
     saveManualConfig(manualUrl, manualKey);
   };
 
@@ -58,14 +77,14 @@ const Login: React.FC = () => {
           <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center text-white text-4xl shadow-2xl shadow-indigo-200 mx-auto mb-6 transform -rotate-6">
             <i className="fas fa-graduation-cap"></i>
           </div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase mb-2">EduPlan <span className="text-indigo-600">Pro</span></h1>
-          <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em]">CBE Master Platform</p>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase mb-1">EduPlan <span className="text-indigo-600">Pro</span></h1>
+          <p className="text-slate-400 font-bold uppercase text-[9px] tracking-[0.2em]">CBE Master Platform</p>
         </div>
 
         {isUsingManualConfig && (
           <div className="mb-6 bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex justify-between items-center">
              <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest flex items-center gap-2">
-               <i className="fas fa-check-circle"></i> Manual Override Active
+               <i className="fas fa-check-circle"></i> {isPreview ? 'Preview Config Active' : 'Manual Override Active'}
              </p>
              <button onClick={clearManualConfig} className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline">Reset</button>
           </div>
@@ -75,12 +94,31 @@ const Login: React.FC = () => {
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             {showManual ? (
               <form onSubmit={handleManualSubmit} className="space-y-4 bg-indigo-50 p-6 rounded-[2rem] border-2 border-indigo-200">
-                <h3 className="text-[11px] font-black text-indigo-900 uppercase tracking-widest mb-2">Manual Connection</h3>
+                <h3 className="text-[11px] font-black text-indigo-900 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <i className="fas fa-tools"></i> {isPreview ? 'Studio Preview Setup' : 'Manual Connection'}
+                </h3>
+                
+                <div>
+                   <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">Smart Paste (Paste whole block of keys here)</label>
+                   <textarea 
+                     className="w-full bg-white p-3 rounded-xl border border-indigo-100 text-[10px] font-bold outline-none min-h-[60px]" 
+                     placeholder="Paste everything from Supabase settings here..."
+                     value={smartPaste}
+                     onChange={e => setSmartPaste(e.target.value)}
+                   />
+                </div>
+
+                <div className="relative py-2 flex items-center">
+                  <div className="flex-grow border-t border-indigo-200"></div>
+                  <span className="flex-shrink mx-4 text-[8px] font-black text-indigo-300 uppercase">Or Individual Keys</span>
+                  <div className="flex-grow border-t border-indigo-200"></div>
+                </div>
+
                 <div>
                    <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">Supabase URL</label>
                    <input 
                      className="w-full bg-white p-3 rounded-xl border border-indigo-100 text-[10px] font-bold outline-none" 
-                     placeholder="https://abc.supabase.co"
+                     placeholder="https://xxx.supabase.co"
                      value={manualUrl}
                      onChange={e => setManualUrl(e.target.value)}
                    />
@@ -88,53 +126,44 @@ const Login: React.FC = () => {
                 <div>
                    <label className="text-[9px] font-black text-slate-400 uppercase mb-1 block">Anon Key</label>
                    <textarea 
-                     className="w-full bg-white p-3 rounded-xl border border-indigo-100 text-[10px] font-bold outline-none min-h-[100px]" 
+                     className="w-full bg-white p-3 rounded-xl border border-indigo-100 text-[10px] font-bold outline-none min-h-[60px]" 
                      placeholder="eyJhbGciOi..."
                      value={manualKey}
                      onChange={e => setManualKey(e.target.value)}
                    />
                 </div>
-                <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg">Save & Connect</button>
+                <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg">Save & Launch Preview</button>
                 <button type="button" onClick={() => setShowManual(false)} className="w-full text-[9px] font-black text-slate-400 uppercase tracking-widest py-2">Back to Guide</button>
               </form>
             ) : (
               <div className="space-y-6">
-                <div className="bg-amber-50 p-6 rounded-[2rem] border-2 border-amber-100">
-                  <h3 className="text-[11px] font-black text-amber-900 uppercase tracking-widest mb-3 flex items-center gap-2">
-                    <i className="fas fa-exclamation-triangle"></i> Environment Issue
+                <div className={`p-6 rounded-[2rem] border-2 ${isPreview ? 'bg-indigo-50 border-indigo-100' : 'bg-amber-50 border-amber-100'}`}>
+                  <h3 className={`text-[11px] font-black uppercase tracking-widest mb-3 flex items-center gap-2 ${isPreview ? 'text-indigo-900' : 'text-amber-900'}`}>
+                    <i className={`fas ${isPreview ? 'fa-eye' : 'fa-exclamation-triangle'}`}></i> 
+                    {isPreview ? 'Preview Environment' : 'Production Environment'}
                   </h3>
-                  <p className="text-[10px] text-amber-800 leading-relaxed font-bold">
-                    In your Vercel Screenshot, your keys say <b>"Preview"</b>. 
-                  </p>
-                  <p className="text-[9px] text-amber-700 mt-2 font-medium">
-                    You must click <b>Edit</b> on them and check the <b>"Production"</b> box, then <b>Redeploy</b>.
+                  <p className="text-[10px] leading-relaxed font-bold text-slate-700">
+                    {isPreview 
+                      ? "This is the AI Studio Preview. It doesn't share your Vercel keys. Please use the button below to paste your Supabase keys once."
+                      : "Your production keys are missing. Please fix your Vercel Environment variables or use the rescue button below."}
                   </p>
                 </div>
 
-                <div className="bg-indigo-50 p-6 rounded-[2rem] border-2 border-indigo-100">
+                <div className="bg-slate-50 p-6 rounded-[2rem] border-2 border-slate-100">
                   <div className="space-y-3">
-                    <div className={`p-4 rounded-2xl border ${missing.includes('SUPABASE_URL') ? 'bg-white border-red-200 shadow-sm' : 'bg-emerald-50 border-emerald-100'}`}>
-                      <div className="flex justify-between items-center mb-1">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable 1</p>
-                        {missing.includes('SUPABASE_URL') ? <i className="fas fa-times-circle text-red-400 text-xs"></i> : <i className="fas fa-check-circle text-emerald-500 text-xs"></i>}
-                      </div>
+                    <div className={`p-4 rounded-2xl border ${missing.includes('SUPABASE_URL') ? 'bg-white border-red-200' : 'bg-emerald-50 border-emerald-100'}`}>
                       <code className="text-[10px] font-black text-indigo-600 block">SUPABASE_URL</code>
                     </div>
-
-                    <div className={`p-4 rounded-2xl border ${missing.includes('SUPABASE_ANON_KEY') ? 'bg-white border-red-200 shadow-sm' : 'bg-emerald-50 border-emerald-100'}`}>
-                      <div className="flex justify-between items-center mb-1">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Variable 2</p>
-                        {missing.includes('SUPABASE_ANON_KEY') ? <i className="fas fa-times-circle text-red-400 text-xs"></i> : <i className="fas fa-check-circle text-emerald-500 text-xs"></i>}
-                      </div>
+                    <div className={`p-4 rounded-2xl border ${missing.includes('SUPABASE_ANON_KEY') ? 'bg-white border-red-200' : 'bg-emerald-50 border-emerald-100'}`}>
                       <code className="text-[10px] font-black text-indigo-600 block">SUPABASE_ANON_KEY</code>
                     </div>
                   </div>
 
                   <button 
                     onClick={() => setShowManual(true)}
-                    className="w-full mt-6 bg-indigo-600/10 text-indigo-700 border-2 border-indigo-200 border-dashed py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest hover:bg-white transition"
+                    className="w-full mt-6 bg-indigo-600 text-white py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:scale-[1.02] transition-all"
                   >
-                    Help! I've added them but it still shows red
+                    {isPreview ? 'Quick Setup Preview' : 'Fix with Manual Override'}
                   </button>
                 </div>
               </div>

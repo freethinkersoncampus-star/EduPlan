@@ -11,7 +11,149 @@ import { supabase, isSupabaseConfigured, signOut as supabaseSignOut, hasSystemCo
 import { LessonSlot, UserProfile, KnowledgeDocument, SOWRow } from './types';
 
 const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
-  { id: 'sys-kicd-framework-2025', title: 'National Rationalized Curriculum Framework', content: 'CBE 2025 structure...', type: 'KICD', size: '6.2 MB', date: 'Jan 2025', category: 'Framework', isActiveContext: true, isSystemDoc: true }
+  { 
+    id: 'sys-kicd-framework-2025', 
+    title: 'National Rationalized Curriculum Framework', 
+    content: 'CBE 2025 structure: Focuses on core competencies: Communication and Collaboration, Self-efficacy, Critical Thinking and Problem Solving, Creativity and Imagination, Citizenship, Digital Literacy, Learning to Learn.', 
+    type: 'KICD', 
+    size: '12.4 MB', 
+    date: 'Jan 2025', 
+    category: 'Framework', 
+    isActiveContext: true, 
+    isSystemDoc: true 
+  },
+  { 
+    id: 'sys-kicd-science-g7', 
+    title: 'Integrated Science Grade 7 Rationalized Design', 
+    content: 'Strands: Mixture, Elements and Molecules. Living Things and their Environment. Heat Transfer. Electricity and Magnetism. Human Body Systems.', 
+    type: 'PDF', 
+    size: '4.8 MB', 
+    date: 'Jan 2025', 
+    category: 'Science', 
+    isActiveContext: true, 
+    isSystemDoc: true 
+  },
+  { 
+    id: 'sys-kicd-math-g7', 
+    title: 'Mathematics Grade 7 Rationalized Design', 
+    content: 'Strands: Numbers (Whole numbers, Fractions, Decimals, Percentages), Algebra (Linear Equations), Geometry (Angles, Triangles), Data Handling (Mean, Median, Mode).', 
+    type: 'PDF', 
+    size: '5.2 MB', 
+    date: 'Jan 2025', 
+    category: 'Mathematics', 
+    isActiveContext: true, 
+    isSystemDoc: true 
+  },
+  { 
+    id: 'sys-kicd-pretech-g7', 
+    title: 'Pre-Technical Studies Grade 7 Rationalized Design', 
+    content: 'Strands: Foundations of Pre-Technical Studies, Materials (Metals, Wood, Plastics), Tools and Equipment, Safety in the Workshop, Drawing and Design Basics.', 
+    type: 'PDF', 
+    size: '8.1 MB', 
+    date: 'Jan 2025', 
+    category: 'Technical', 
+    isActiveContext: true, 
+    isSystemDoc: true 
+  },
+  { 
+    id: 'sys-kicd-creative-g7', 
+    title: 'Creative Arts and Sports Grade 7 Rationalized Design', 
+    content: 'Strands: Performing Arts (Music, Dance, Drama), Visual Arts (Drawing, Painting, Sculpture), Physical Education and Sports (Athletics, Ball Games).', 
+    type: 'PDF', 
+    size: '9.5 MB', 
+    date: 'Jan 2025', 
+    category: 'Arts', 
+    isActiveContext: true, 
+    isSystemDoc: true 
+  },
+  { 
+    id: 'sys-kicd-english-g7', 
+    title: 'English Grade 7 Rationalized Design', 
+    content: 'Strands: Listening and Speaking, Reading, Grammar in Context, Writing Skills. Focus on functional writing and comprehension.', 
+    type: 'PDF', 
+    size: '3.9 MB', 
+    date: 'Jan 2025', 
+    category: 'Languages', 
+    isActiveContext: true, 
+    isSystemDoc: true 
+  },
+  { 
+    id: 'sys-kicd-ss-g7', 
+    title: 'Social Studies Grade 7 Rationalized Design', 
+    content: 'Strands: Physical Environment, African History and Governance, Resources and Economic Activities, Citizenship and Social Integration.', 
+    type: 'PDF', 
+    size: '7.3 MB', 
+    date: 'Jan 2025', 
+    category: 'Social Sciences', 
+    isActiveContext: true, 
+    isSystemDoc: true 
+  },
+  { 
+    id: 'sys-kicd-kiswahili-g7', 
+    title: 'Kiswahili Grade 7 Rationalized Design', 
+    content: 'Mada: Kusikiliza na Kuzungumza, Kusoma, Sarufi, Kuandika. Mkazo katika Kiswahili Sanifu na mawasiliano ya kila siku.', 
+    type: 'PDF', 
+    size: '4.1 MB', 
+    date: 'Jan 2025', 
+    category: 'Languages', 
+    isActiveContext: true, 
+    isSystemDoc: true 
+  },
+  { 
+    id: 'sys-kicd-science-g8', 
+    title: 'Integrated Science Grade 8 Rationalized Design', 
+    content: 'Strands: Chemical Substances, Light and Sound, Reproduction in Plants and Animals, Excretory System, Force and Pressure.', 
+    type: 'PDF', 
+    size: '5.0 MB', 
+    date: 'Jan 2025', 
+    category: 'Science', 
+    isActiveContext: true, 
+    isSystemDoc: true 
+  },
+  { 
+    id: 'sys-kicd-math-g8', 
+    title: 'Mathematics Grade 8 Rationalized Design', 
+    content: 'Strands: Squares and Square Roots, Ratio and Proportion, Linear Inequalities, Circles and Polygons, Probability.', 
+    type: 'PDF', 
+    size: '5.5 MB', 
+    date: 'Jan 2025', 
+    category: 'Mathematics', 
+    isActiveContext: true, 
+    isSystemDoc: true 
+  },
+  { 
+    id: 'sys-kicd-ict-g7-9', 
+    title: 'Digital Literacy & Computer Science Grade 7-9', 
+    content: 'Strands: Computer Systems, Internet and World Wide Web, Computational Thinking (Scratch/Python), Spreadsheet and Word Processing, Cyber Security.', 
+    type: 'PDF', 
+    size: '10.2 MB', 
+    date: 'Jan 2025', 
+    category: 'ICT', 
+    isActiveContext: true, 
+    isSystemDoc: true 
+  },
+  { 
+    id: 'sys-kicd-life-skills-g7', 
+    title: 'Life Skills Education Grade 7 Rationalized Design', 
+    content: 'Strands: Self-Awareness, Empathy, Decision Making, Problem Solving, Effective Communication, Interpersonal Relationships.', 
+    type: 'PDF', 
+    size: '3.1 MB', 
+    date: 'Jan 2025', 
+    category: 'Life Skills', 
+    isActiveContext: true, 
+    isSystemDoc: true 
+  },
+  { 
+    id: 'sys-kicd-agr-g7', 
+    title: 'Agriculture and Nutrition Grade 7 Rationalized Design', 
+    content: 'Strands: Conserving the Environment, Crop Production, Animal Production, Human Nutrition, Food Preservation.', 
+    type: 'PDF', 
+    size: '6.7 MB', 
+    date: 'Jan 2025', 
+    category: 'Agriculture', 
+    isActiveContext: true, 
+    isSystemDoc: true 
+  }
 ];
 
 const App: React.FC = () => {
@@ -80,6 +222,7 @@ const App: React.FC = () => {
       }
       if (appData) {
         setSlots(appData.slots || []);
+        // Merge system docs with user docs
         setDocuments([...SYSTEM_CURRICULUM_DOCS, ...(appData.docs || [])]);
       }
       setSyncStatus('online');
