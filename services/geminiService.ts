@@ -10,15 +10,17 @@ const getAIClient = () => {
 };
 
 const cleanJsonString = (str: string): string => {
-  // Robust extraction: find the first '[' or '{' and the last matching closing character
+  // Enhanced robust extraction: find the actual start and end of the JSON content
   const firstArray = str.indexOf('[');
   const lastArray = str.lastIndexOf(']');
   const firstObject = str.indexOf('{');
   const lastObject = str.lastIndexOf('}');
 
-  if (firstArray !== -1 && lastArray !== -1 && (firstObject === -1 || firstArray < firstObject)) {
+  // If there's an array pattern, prioritize it (usually for SOW)
+  if (firstArray !== -1 && lastArray !== -1) {
     return str.substring(firstArray, lastArray + 1);
   }
+  // If it's a single object (usually for Lesson Plan)
   if (firstObject !== -1 && lastObject !== -1) {
     return str.substring(firstObject, lastObject + 1);
   }
@@ -40,20 +42,20 @@ export const generateSOW = async (
       contents: `
       ${knowledgeContext ? `KICD OFFICIAL REFERENCE MATERIALS: \n${knowledgeContext}\n\n` : ''}
       Generate a CBE-compliant Rationalized Scheme of Work for: ${subject}, Level: ${grade}, Term: ${term}.
-      Generate exactly ${lessonSlotsCount} lessons.
+      Generate exactly ${lessonSlotsCount} lessons for a full term.
       
       MANDATORY CBE GUIDELINES:
       - Use the LATEST 2024/2025 Rationalized Curriculum standards.
       - learningOutcomes: Must start with "By the end of the lesson, the learner should be able to:" followed by a lettered list (a, b, c).
-      - teachingExperiences: Must be learner-centered (e.g., "Learners are guided in pairs/groups to...").
-      - keyInquiryQuestions: Must be relevant and provocative.
-      - learningResources: Cite specific Kenyan textbooks (e.g., Spotlight, Mentor, Moran).
-      - assessmentMethods: Include formative assessment (e.g., Checklists, Portfolios, Self-Assessment).
+      - teachingExperiences: Must be learner-centered.
+      - keyInquiryQuestions: Must be relevant.
+      - learningResources: Cite Kenyan textbooks.
+      - assessmentMethods: Include formative assessment.
 
       RETURN A VALID JSON ARRAY ONLY.
       `,
       config: {
-        systemInstruction: "ACT AS A KICD CURRICULUM SPECIALIST. You are an expert in the Kenyan Competency Based Education (CBE) system. Ensure all outputs are strictly formatted as JSON.",
+        systemInstruction: "ACT AS A KICD CURRICULUM SPECIALIST. You are an expert in the Kenyan Competency Based Education (CBE) system. Ensure all outputs are strictly valid JSON arrays without conversational filler.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -102,7 +104,7 @@ export const generateLessonPlan = async (
       model: 'gemini-3-flash-preview', 
       contents: `
       ${knowledgeContext ? `REFERENCE MATERIALS: \n${knowledgeContext}\n\n` : ''}
-      GENERATE A KENYAN CBE (COMPETENCY BASED EDUCATION) LESSON PLAN.
+      GENERATE A KENYAN CBE LESSON PLAN.
       
       Learning Area: ${subject}
       Grade: ${grade}
@@ -111,17 +113,13 @@ export const generateLessonPlan = async (
       School: ${schoolName}
 
       STRUCTURE:
-      1. Specific Learning Outcomes: Actionable and learner-centered.
-      2. Key Inquiry Questions: Critical thinking focus.
-      3. Learning Resources: Materials/textbooks.
-      4. Organization of Learning:
-         - Introduction (5 mins)
-         - Lesson Development (30 mins): 4 distinct steps.
-         - Conclusion (5 mins)
-      5. Extended Activities: Community Service Learning (CSL) or home projects.
+      1. Specific Learning Outcomes: Actionable.
+      2. Key Inquiry Questions.
+      3. Learning Resources.
+      4. Organization of Learning: Introduction (5m), Development (30m), Conclusion (5m).
       `,
       config: {
-        systemInstruction: "ACT AS A KICD PEDAGOGICAL EXPERT. Create highly engaging, CBE-aligned lesson plans for Kenyan primary and junior schools. Output must be valid JSON.",
+        systemInstruction: "ACT AS A KICD PEDAGOGICAL EXPERT. Create CBE-aligned lesson plans for Kenyan schools. Output must be valid JSON.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -194,7 +192,7 @@ export const generateLessonNotes = async (
       Subject: ${subject} Grade ${grade}. Topic: ${topic}.
       Write detailed study notes in Markdown format.`,
       config: {
-        systemInstruction: "WRITE COMPREHENSIVE STUDY NOTES for a Kenyan learner. You are a world-class educator. Use clear headers and formatting.",
+        systemInstruction: "WRITE COMPREHENSIVE STUDY NOTES for a Kenyan learner. Use clear headers and formatting.",
       }
     });
 

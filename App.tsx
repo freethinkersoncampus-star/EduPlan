@@ -40,6 +40,29 @@ const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
 
 const LOCAL_STORAGE_KEY = 'eduplan_backup_data';
 
+const MobileNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (t: string) => void }) => (
+  <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 flex justify-around items-center z-50 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
+    {[
+      { id: 'dashboard', icon: 'fa-th-large', label: 'Home' },
+      { id: 'timetable', icon: 'fa-calendar-alt', label: 'Schedule' },
+      { id: 'sow', icon: 'fa-file-signature', label: 'Schemes' },
+      { id: 'lesson-planner', icon: 'fa-book-open', label: 'Planner' },
+      { id: 'documents', icon: 'fa-folder-open', label: 'Vault' },
+    ].map(item => (
+      <button 
+        key={item.id} 
+        onClick={() => setActiveTab(item.id)}
+        className="flex flex-col items-center gap-1.5"
+      >
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400'}`}>
+          <i className={`fas ${item.icon} text-sm`}></i>
+        </div>
+        <span className={`text-[8px] font-black uppercase tracking-widest ${activeTab === item.id ? 'text-indigo-600' : 'text-slate-400'}`}>{item.label}</span>
+      </button>
+    ))}
+  </nav>
+);
+
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -209,7 +232,7 @@ const App: React.FC = () => {
     <div className="flex min-h-screen bg-slate-50 flex-col md:flex-row font-inter">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} profile={profile} onLogout={handleLogout} />
       
-      <main className="flex-1 md:ml-64 overflow-y-auto min-h-screen pb-24 md:pb-12 scroll-smooth">
+      <main className="flex-1 md:ml-64 overflow-y-auto min-h-screen pb-32 md:pb-12 scroll-smooth">
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 md:px-12 py-4 flex justify-between items-center print:hidden">
           <div className="flex items-center gap-6">
             <div className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full ${isDirty ? 'bg-amber-50' : 'bg-emerald-50'}`}>
@@ -254,6 +277,8 @@ const App: React.FC = () => {
           )}
           {activeTab === 'documents' && <DocumentLibrary documents={documents} setDocuments={wrapUpdate(setDocuments)} />}
         </div>
+
+        <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} />
       </main>
     </div>
   );
