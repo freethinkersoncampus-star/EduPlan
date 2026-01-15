@@ -63,6 +63,69 @@ const MobileNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTa
   </nav>
 );
 
+const ProfileModal = ({ isOpen, onClose, profile, setProfile }: { isOpen: boolean, onClose: () => void, profile: UserProfile, setProfile: (p: UserProfile) => void }) => {
+  const [tempProfile, setTempProfile] = useState(profile);
+
+  useEffect(() => {
+    if (isOpen) setTempProfile(profile);
+  }, [isOpen, profile]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+      <div className="bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+        <div className="p-8 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-black text-slate-800 uppercase tracking-tight">Teacher Profile</h2>
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Configure Identity Details</p>
+          </div>
+          <button onClick={onClose} className="w-10 h-10 rounded-full hover:bg-slate-200 flex items-center justify-center transition-colors">
+            <i className="fas fa-times text-slate-400"></i>
+          </button>
+        </div>
+        <div className="p-8 space-y-6">
+          <div>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Teacher Full Name</label>
+            <input 
+              className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-black text-[11px] outline-none focus:border-indigo-500 transition-all"
+              placeholder="e.g. MR. KORIR"
+              value={tempProfile.name}
+              onChange={e => setTempProfile({ ...tempProfile, name: e.target.value.toUpperCase() })}
+            />
+          </div>
+          <div>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">TSC Registration Number</label>
+            <input 
+              className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-black text-[11px] outline-none focus:border-indigo-500 transition-all"
+              placeholder="e.g. 123456"
+              value={tempProfile.tscNumber}
+              onChange={e => setTempProfile({ ...tempProfile, tscNumber: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">School Name</label>
+            <input 
+              className="w-full bg-slate-50 border-2 border-slate-100 p-4 rounded-2xl font-black text-[11px] outline-none focus:border-indigo-500 transition-all"
+              placeholder="e.g. KABIANGEK JUNIOR SCHOOL"
+              value={tempProfile.school}
+              onChange={e => setTempProfile({ ...tempProfile, school: e.target.value.toUpperCase() })}
+            />
+          </div>
+        </div>
+        <div className="p-8 pt-0">
+          <button 
+            onClick={() => { setProfile(tempProfile); onClose(); }}
+            className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition active:scale-95"
+          >
+            Update Profile Information
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -279,6 +342,13 @@ const App: React.FC = () => {
         </div>
 
         <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} />
+        
+        <ProfileModal 
+          isOpen={isProfileModalOpen} 
+          onClose={() => setIsProfileModalOpen(false)} 
+          profile={profile} 
+          setProfile={wrapUpdate(setProfile)} 
+        />
       </main>
     </div>
   );
