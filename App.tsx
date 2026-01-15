@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Timetable from './components/Timetable';
@@ -19,7 +19,7 @@ const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
   { id: 'js-int-science', title: 'Integrated Science (Grade 7-9)', content: 'Rationalized Design: Physics, Chemistry, Biology.', type: 'KICD', size: '5.2 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true }
 ];
 
-const LOCAL_STORAGE_KEY = 'eduplan_backup_data';
+const LOCAL_STORAGE_KEY = 'eduplan_backup_data_v2';
 
 const MobileNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (t: string) => void }) => (
   <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 flex justify-around items-center z-50 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
@@ -44,30 +44,28 @@ const App = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'online' | 'syncing' | 'offline'>('online');
+  
+  // AIR-LOCK PROTECTION: 
+  // isHydrated: True ONLY when cloud data is successfully applied to local state.
+  // isDirty: True ONLY when a user makes a manual change AFTER hydration is finished.
   const [isHydrated, setIsHydrated] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-
+  
   const [currentSow, setCurrentSow] = useState<SOWRow[]>([]);
   const [currentSowMeta, setCurrentSowMeta] = useState({ subject: '', grade: '', term: 1, termStart: new Date().toISOString().split('T')[0] });
   const [plannerPrefill, setPlannerPrefill] = useState<any>(null);
 
-  const getInitialState = (key: string, fallback: any) => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (!saved) return fallback;
-    try {
-      const parsed = JSON.parse(saved);
-      return parsed[key] || fallback;
-    } catch { return fallback; }
-  };
+  // States initialized to empty. No immediate localStorage read to prevent race conditions.
+  const [sowHistory, setSowHistory] = useState<SavedSOW[]>([]);
+  const [planHistory, setPlanHistory] = useState<SavedLessonPlan[]>([]);
+  const [noteHistory, setNoteHistory] = useState<SavedLessonNote[]>([]);
+  const [profile, setProfile] = useState<UserProfile>({ name: '', tscNumber: '', school: '', subjects: [], availableSubjects: [], grades: [], onboardedStaff: [] });
+  const [documents, setDocuments] = useState<KnowledgeDocument[]>(SYSTEM_CURRICULUM_DOCS);
+  const [slots, setSlots] = useState<LessonSlot[]>([]);
 
-  const [sowHistory, setSowHistory] = useState<SavedSOW[]>(() => getInitialState('sowHistory', []));
-  const [planHistory, setPlanHistory] = useState<SavedLessonPlan[]>(() => getInitialState('planHistory', []));
-  const [noteHistory, setNoteHistory] = useState<SavedLessonNote[]>(() => getInitialState('noteHistory', []));
-  const [profile, setProfile] = useState<UserProfile>(() => getInitialState('profile', { name: '', tscNumber: '', school: '', subjects: [], availableSubjects: [], grades: [], onboardedStaff: [] }));
-  const [documents, setDocuments] = useState<KnowledgeDocument[]>(() => [...SYSTEM_CURRICULUM_DOCS, ...getInitialState('documents', [])]);
-  const [slots, setSlots] = useState<LessonSlot[]>(() => getInitialState('slots', []));
+  // Track hydration attempts to prevent infinite loops
+  const hydrationAttempted = useRef(false);
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
@@ -77,19 +75,40 @@ const App = () => {
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (!session) { setIsHydrated(false); setIsDirty(false); }
+      if (!session) {
+        // Reset everything on logout
+        setIsHydrated(false);
+        setIsDirty(false);
+        hydrationAttempted.current = false;
+        setSlots([]);
+        setSowHistory([]);
+        setPlanHistory([]);
+        setNoteHistory([]);
+        setProfile({ name: '', tscNumber: '', school: '', subjects: [], availableSubjects: [], grades: [], onboardedStaff: [] });
+        setDocuments(SYSTEM_CURRICULUM_DOCS);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
 
   const loadFromCloud = useCallback(async (userId: string) => {
-    if (!supabase) return;
+    if (!supabase || hydrationAttempted.current) return;
     setSyncStatus('syncing');
+    
     try {
-      // Use maybeSingle to prevent error on missing rows for new users
-      const { data: p } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-      const { data: d } = await supabase.from('user_data').select('*').eq('user_id', userId).maybeSingle();
+      console.log("EDUPAN SYNC: Initiating Force-Pull from Cloud...");
+      
+      // Atomic fetch of all user data
+      const [profileRes, dataRes] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+        supabase.from('user_data').select('*').eq('user_id', userId).maybeSingle()
+      ]);
 
+      const p = profileRes.data;
+      const d = dataRes.data;
+
+      // ATOMIC UPDATE: We set state directly. We do NOT use wrapUpdate here 
+      // because we don't want to mark the state as "Dirty" during the initial load.
       if (p) {
         setProfile({
           name: p.name || '',
@@ -101,36 +120,65 @@ const App = () => {
           grades: p.grades || []
         });
       }
+
       if (d) {
         if (d.slots) setSlots(d.slots);
         if (d.sow_history) setSowHistory(d.sow_history);
         if (d.plan_history) setPlanHistory(d.plan_history);
         if (d.note_history) setNoteHistory(d.note_history);
         if (d.docs) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...d.docs]);
+      } else {
+        // SECONDARY BACKUP: Only if cloud is empty, check localStorage
+        const localBackup = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (localBackup) {
+          try {
+            const parsed = JSON.parse(localBackup);
+            if (parsed.profile) setProfile(parsed.profile);
+            if (parsed.slots) setSlots(parsed.slots);
+            if (parsed.sowHistory) setSowHistory(parsed.sowHistory);
+            if (parsed.planHistory) setPlanHistory(parsed.planHistory);
+            if (parsed.noteHistory) setNoteHistory(parsed.noteHistory);
+            if (parsed.documents) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...parsed.documents]);
+          } catch (e) { console.warn("Backup corrupted."); }
+        }
       }
-      // Critical: mark as hydrated ONLY after fetch logic is complete
+
+      // AIR-LOCK UNLOCK: Now that data is safely loaded, we allow the app to mark itself as dirty.
       setIsHydrated(true);
       setSyncStatus('online');
+      hydrationAttempted.current = true;
+      console.log("EDUPAN SYNC: Cloud Hydration Complete. Air-Lock Disengaged.");
+
     } catch (err) {
-      console.error("Cloud hydration failed:", err);
-      setIsHydrated(true); // Fallback to local storage if network fails
+      console.error("Cloud sync failed critically:", err);
+      // Even on error, we mark hydrated so the user can use the app offline, 
+      // but syncStatus will stay 'offline' to prevent dangerous writes.
+      setIsHydrated(true);
       setSyncStatus('offline');
     }
   }, []);
 
   useEffect(() => {
-    if (session?.user && supabase && !isHydrated) {
+    if (session?.user && supabase && !isHydrated && !hydrationAttempted.current) {
       loadFromCloud(session.user.id);
     }
   }, [session, loadFromCloud, isHydrated]);
 
   const syncToCloud = useCallback(async () => {
-    // HYDRATION GUARD: Never sync blank data to the cloud if we haven't successfully loaded existing cloud data yet.
-    if (!session?.user || !supabase || !isHydrated || !isDirty) return;
+    // THE WRITE-BLOCKER:
+    // 1. Must have session.
+    // 2. Must have hydrated (loaded) data from cloud first.
+    // 3. Must have a dirty flag (unsaved changes).
+    if (!session?.user || !supabase || !isHydrated || !isDirty) {
+      return;
+    }
     
     setSyncStatus('syncing');
     try {
-      await supabase.from('profiles').upsert({
+      console.log("EDUPAN SYNC: Pushing local updates to cloud...");
+      
+      // Use UPSERT for atomic cloud storage
+      const { error: profileError } = await supabase.from('profiles').upsert({
         id: session.user.id,
         name: profile.name,
         tsc_number: profile.tscNumber,
@@ -142,7 +190,9 @@ const App = () => {
         updated_at: new Date().toISOString()
       });
 
-      await supabase.from('user_data').upsert({
+      if (profileError) throw profileError;
+
+      const { error: dataError } = await supabase.from('user_data').upsert({
         user_id: session.user.id,
         slots,
         sow_history: sowHistory,
@@ -152,34 +202,48 @@ const App = () => {
         updated_at: new Date().toISOString()
       });
 
+      if (dataError) throw dataError;
+
       setSyncStatus('online');
-      setIsDirty(false);
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ slots, sowHistory, planHistory, noteHistory, profile, documents: documents.filter(d => !d.isSystemDoc) }));
+      setIsDirty(false); // Changes are now saved.
+
+      // Update local backup
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ 
+        slots, 
+        sowHistory, 
+        planHistory, 
+        noteHistory, 
+        profile, 
+        documents: documents.filter(d => !d.isSystemDoc) 
+      }));
+      
+      console.log("EDUPAN SYNC: Cloud write successful.");
     } catch (err) {
-      console.error("Cloud sync failed:", err);
+      console.error("Cloud push failed:", err);
       setSyncStatus('offline');
     }
   }, [session, profile, slots, sowHistory, planHistory, noteHistory, documents, isHydrated, isDirty]);
 
+  // Debounced Sync
   useEffect(() => {
     if (!isHydrated || !isDirty) return;
-    const timer = setTimeout(() => syncToCloud(), 3000);
+    const timer = setTimeout(() => syncToCloud(), 5000); // 5s debounce for mobile stability
     return () => clearTimeout(timer);
   }, [isDirty, syncToCloud, isHydrated]);
 
+  // Wrap state updates to mark as dirty only if we are ready
   const wrapUpdate = (fn: Function) => (val: any) => { 
     fn(val); 
-    // Only mark as dirty if the initial cloud download has finished
-    if (isHydrated) setIsDirty(true); 
+    if (isHydrated) {
+      setIsDirty(true);
+    }
   };
 
   const handleLogout = async () => {
     if (confirm("Logout from EduPlan?")) {
       if (supabase) await supabaseSignOut();
-      setSession(null);
-      setIsHydrated(false);
-      setIsDirty(false);
-      setActiveTab('dashboard');
+      // State reset handled by onAuthStateChange
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
     }
   };
 
@@ -187,7 +251,7 @@ const App = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="text-center">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Syncing Academic Record...</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Syncing Master Record...</p>
       </div>
     </div>
   );
@@ -203,10 +267,10 @@ const App = () => {
             <div className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full ${isDirty ? 'bg-amber-50' : 'bg-emerald-50'}`}>
               <div className={`w-2 h-2 rounded-full ${syncStatus === 'syncing' ? 'bg-amber-500 animate-pulse' : isDirty ? 'bg-amber-400' : 'bg-emerald-500'}`}></div>
               <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest leading-none">
-                {syncStatus === 'syncing' ? 'Syncing...' : isDirty ? 'Unsaved' : 'Synced'}
+                {syncStatus === 'syncing' ? 'Cloud Sync...' : isDirty ? 'Unsaved' : 'Cloud Safe'}
               </span>
             </div>
-            {!isHydrated && <span className="text-[8px] font-black text-indigo-400 uppercase animate-pulse">Checking Vault...</span>}
+            {!isHydrated && <span className="text-[8px] font-black text-indigo-400 uppercase animate-pulse tracking-widest">Airlock Protection Active</span>}
           </div>
           <div className="flex items-center gap-4 cursor-pointer group">
             <div className="text-right hidden sm:block">
