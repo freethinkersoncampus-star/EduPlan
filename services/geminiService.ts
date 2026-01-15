@@ -11,21 +11,28 @@ const getAIClient = () => {
 
 const cleanJsonString = (str: string): string => {
   // Enhanced robust extraction: find the actual start and end of the JSON content
-  const firstArray = str.indexOf('[');
-  const lastArray = str.lastIndexOf(']');
-  const firstObject = str.indexOf('{');
-  const lastObject = str.lastIndexOf('}');
+  // First, remove markdown code block markers if they exist
+  let cleaned = str.replace(/```json/g, "").replace(/```/g, "").trim();
+  
+  const firstArray = cleaned.indexOf('[');
+  const lastArray = cleaned.lastIndexOf(']');
+  const firstObject = cleaned.indexOf('{');
+  const lastObject = cleaned.lastIndexOf('}');
 
-  // If there's an array pattern, prioritize it (usually for SOW)
-  if (firstArray !== -1 && lastArray !== -1) {
-    return str.substring(firstArray, lastArray + 1);
-  }
-  // If it's a single object (usually for Lesson Plan)
-  if (firstObject !== -1 && lastObject !== -1) {
-    return str.substring(firstObject, lastObject + 1);
+  // Determine if we are looking for an array or an object
+  // If it's a SOW, we usually expect an array. If it's a Lesson Plan, an object.
+  // We'll return the outermost structure found.
+  
+  const arrayStart = firstArray !== -1 ? firstArray : Infinity;
+  const objectStart = firstObject !== -1 ? firstObject : Infinity;
+
+  if (arrayStart < objectStart && lastArray !== -1) {
+    return cleaned.substring(firstArray, lastArray + 1);
+  } else if (lastObject !== -1) {
+    return cleaned.substring(firstObject, lastObject + 1);
   }
   
-  return str.replace(/```json/g, "").replace(/```/g, "").trim();
+  return cleaned;
 };
 
 export const generateSOW = async (
@@ -38,7 +45,7 @@ export const generateSOW = async (
   try {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: `
       ${knowledgeContext ? `KICD OFFICIAL REFERENCE MATERIALS: \n${knowledgeContext}\n\n` : ''}
       Generate a CBE-compliant Rationalized Scheme of Work for: ${subject}, Level: ${grade}, Term: ${term}.
@@ -47,15 +54,15 @@ export const generateSOW = async (
       MANDATORY CBE GUIDELINES:
       - Use the LATEST 2024/2025 Rationalized Curriculum standards.
       - learningOutcomes: Must start with "By the end of the lesson, the learner should be able to:" followed by a lettered list (a, b, c).
-      - teachingExperiences: Must be learner-centered.
-      - keyInquiryQuestions: Must be relevant.
-      - learningResources: Cite Kenyan textbooks.
-      - assessmentMethods: Include formative assessment.
+      - teachingExperiences: Must be learner-centered and activity-based.
+      - keyInquiryQuestions: Must be relevant to the sub-strand.
+      - learningResources: Cite specific Kenyan textbooks and digital tools.
+      - assessmentMethods: Include formative and peer assessment.
 
       RETURN A VALID JSON ARRAY ONLY.
       `,
       config: {
-        systemInstruction: "ACT AS A KICD CURRICULUM SPECIALIST. You are an expert in the Kenyan Competency Based Education (CBE) system. Ensure all outputs are strictly valid JSON arrays without conversational filler.",
+        systemInstruction: "ACT AS A KICD CURRICULUM SPECIALIST. You are an expert in the Kenyan Competency Based Education (CBE) system. Ensure all outputs are strictly valid JSON arrays without conversational filler. Use gemini-3-pro-preview capabilities for high fidelity pedagogical accuracy.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -101,10 +108,10 @@ export const generateLessonPlan = async (
   try {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', 
+      model: 'gemini-3-pro-preview', 
       contents: `
-      ${knowledgeContext ? `REFERENCE MATERIALS: \n${knowledgeContext}\n\n` : ''}
-      GENERATE A KENYAN CBE LESSON PLAN.
+      ${knowledgeContext ? `OFFICIAL REFERENCE CONTEXT: \n${knowledgeContext}\n\n` : ''}
+      GENERATE A COMPREHENSIVE KENYAN CBE LESSON PLAN.
       
       Learning Area: ${subject}
       Grade: ${grade}
@@ -112,14 +119,20 @@ export const generateLessonPlan = async (
       Sub-Strand: ${subStrand}
       School: ${schoolName}
 
-      STRUCTURE:
-      1. Specific Learning Outcomes: Actionable.
-      2. Key Inquiry Questions.
-      3. Learning Resources.
-      4. Organization of Learning: Introduction (5m), Development (30m), Conclusion (5m).
+      STRICT CBE STRUCTURE REQUIREMENTS:
+      1. Specific Learning Outcomes: Must be measurable (e.g., "Learner should be able to...").
+      2. Key Inquiry Questions: Relevant open-ended questions.
+      3. Learning Resources: Identify relevant textbooks and local materials.
+      4. Organization of Learning: 
+         - Introduction (5m): Stimulate interest, link to prior knowledge.
+         - Lesson Development (30m): Step-by-step learner-centered activities.
+         - Conclusion (5m): Summary and reflection.
+      5. Assessment: Clear formative strategies.
+
+      OUTPUT MUST BE VALID JSON MATCHING THE SCHEMA PROVIDED.
       `,
       config: {
-        systemInstruction: "ACT AS A KICD PEDAGOGICAL EXPERT. Create CBE-aligned lesson plans for Kenyan schools. Output must be valid JSON.",
+        systemInstruction: "ACT AS A SENIOR KICD PEDAGOGICAL CONSULTANT. You excel at creating learner-centered, activity-based lesson plans that follow the 2024/2025 Kenyan rationalized curriculum. Your output MUST be strictly structured JSON to be consumed by a web application.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -186,13 +199,13 @@ export const generateLessonNotes = async (
   try {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: `
       ${knowledgeContext ? `OFFICIAL KICD BASE CONTENT: \n${knowledgeContext}\n\n` : ''}
       Subject: ${subject} Grade ${grade}. Topic: ${topic}.
-      Write detailed study notes in Markdown format.`,
+      Write detailed study notes in Markdown format for a Kenyan learner. Include clear headers, bullet points, and summaries.`,
       config: {
-        systemInstruction: "WRITE COMPREHENSIVE STUDY NOTES for a Kenyan learner. Use clear headers and formatting.",
+        systemInstruction: "WRITE COMPREHENSIVE STUDY NOTES for a Kenyan learner following the CBE system. Use clear headers and formatting.",
       }
     });
 
