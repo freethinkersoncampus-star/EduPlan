@@ -9,6 +9,24 @@ const getAIClient = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
+/**
+ * Helper to handle 429 Rate Limit errors with exponential backoff.
+ * This directly addresses the "Quota Exceeded" errors seen in the user's screenshots.
+ */
+async function callWithRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> {
+  try {
+    return await fn();
+  } catch (error: any) {
+    const isRateLimit = error?.message?.includes('429') || error?.message?.includes('quota');
+    if (isRateLimit && retries > 0) {
+      console.warn(`Rate limit hit. Retrying in ${delay}ms... (${retries} attempts left)`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      return callWithRetry(fn, retries - 1, delay * 2);
+    }
+    throw error;
+  }
+}
+
 const cleanJsonString = (str: string): string => {
   if (!str) return "";
   const firstBrace = str.indexOf('{');
@@ -41,10 +59,10 @@ export const generateSOW = async (
   knowledgeContext?: string,
   weekOffset: number = 1
 ): Promise<SOWRow[]> => {
-  try {
+  return callWithRetry(async () => {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-flash',
       contents: `
       CONTEXT: ${knowledgeContext || 'KICD Rationalized Curriculum 2024/2025'}
       TASK: Generate a CBE Rationalized Scheme of Work for ${subject}, ${grade}, Term ${term}.
@@ -83,10 +101,7 @@ export const generateSOW = async (
     });
     const jsonStr = cleanJsonString(response.text || "");
     return JSON.parse(jsonStr) as SOWRow[];
-  } catch (error) {
-    console.error("SOW Generation Failed:", error);
-    throw error;
-  }
+  });
 };
 
 export const generateLessonPlan = async (
@@ -97,10 +112,10 @@ export const generateLessonPlan = async (
   schoolName: string,
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
-  try {
+  return callWithRetry(async () => {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', 
+      model: 'gemini-2.5-flash', 
       contents: `
       SUBJECT: ${subject} | LEVEL: ${grade} | TOPIC: ${subStrand}
       CONTEXT: ${knowledgeContext || 'Standard KICD CBE'}
@@ -108,7 +123,7 @@ export const generateLessonPlan = async (
       `,
       config: {
         maxOutputTokens: 6000,
-        systemInstruction: "Act as a Senior KICD Consultant. Output STRICTLY valid JSON. Ensure all schema fields are populated with relevant strings or numbers.",
+        systemInstruction: "Act as a Senior KICD Consultant. Output STRICTLY valid JSON. Do not omit roll, textbook, or year.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -156,10 +171,7 @@ export const generateLessonPlan = async (
     });
     const jsonStr = cleanJsonString(response.text || "");
     return JSON.parse(jsonStr) as LessonPlan;
-  } catch (error) {
-    console.error("Lesson Plan Generation Failed:", error);
-    throw error;
-  }
+  });
 };
 
 export const generateLessonNotes = async (
@@ -169,18 +181,15 @@ export const generateLessonNotes = async (
   customContext?: string,
   knowledgeContext?: string
 ): Promise<string> => {
-  try {
+  return callWithRetry(async () => {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-flash',
       contents: `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}. Generate detailed pedagogical study notes following Kenyan CBE guidelines. Use Markdown.`,
       config: {
         maxOutputTokens: 6000
       }
     });
     return response.text || "Notes generation failed.";
-  } catch (error) {
-    console.error("Notes Generation Failed:", error);
-    throw error;
-  }
+  });
 };

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -68,12 +69,17 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
   const handleGeneratePlan = async (subj = input.subject, grd = input.grade, strnd = input.strand, subStrnd = input.subStrand) => {
     if (!subj || !subStrnd) return alert("Please fill the subject and sub-strand topic.");
     setLoadingPlan(true);
+    setPlan(null);
     try {
       const result = await generateLessonPlan(subj, grd, strnd, subStrnd, userProfile.school || "KICD MASTER", knowledgeContext);
       setPlan(result);
-    } catch (err) { 
+    } catch (err: any) { 
       console.error(err);
-      alert("Failed to generate lesson plan."); 
+      if (err.message?.includes('429')) {
+        alert("AI QUOTA EXCEEDED: You have reached the free tier limit. Please try again in 1 minute or upgrade your Gemini API key.");
+      } else {
+        alert("System Error: Failed to architect the lesson plan. Please refine your topic and try again.");
+      }
     } finally { 
       setLoadingPlan(false); 
     }
@@ -82,12 +88,17 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
   const handleGenerateNotes = async (subj = input.subject, grd = input.grade, subStrnd = input.subStrand) => {
     if (!subj || !subStrnd) return alert("Please fill the subject and sub-strand topic.");
     setLoadingNotes(true);
+    setNotes('');
     try {
       const result = await generateLessonNotes(subj, grd, subStrnd, "", knowledgeContext);
       setNotes(result);
-    } catch (err) { 
+    } catch (err: any) { 
       console.error(err);
-      alert("Failed to generate notes."); 
+      if (err.message?.includes('429')) {
+        alert("AI QUOTA EXCEEDED: You have reached the free tier limit. Please wait a moment.");
+      } else {
+        alert("Failed to generate notes. Please check your internet connection.");
+      }
     } finally { 
       setLoadingNotes(false); 
     }
@@ -148,7 +159,7 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
   return (
     <div className="p-4 md:p-8 pb-24">
       <div className="flex justify-between items-center mb-10 print:hidden">
-        <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">Pedagogical Studio</h2>
+        <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter text-black">Pedagogical Studio</h2>
         <div className="flex bg-slate-100 p-1 rounded-2xl shadow-inner">
           <button onClick={() => setView('editor')} className={`px-6 py-2 rounded-xl font-black text-[10px] tracking-widest transition-all ${view === 'editor' ? 'bg-white text-indigo-900 shadow-md' : 'text-slate-500'}`}>BUILDER</button>
           <button onClick={() => setView('library')} className={`px-6 py-2 rounded-xl font-black text-[10px] tracking-widest transition-all ${view === 'library' ? 'bg-white text-indigo-900 shadow-md' : 'text-slate-500'}`}>HISTORY</button>
@@ -185,7 +196,7 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                   className="flex-1 bg-indigo-600 text-white font-black py-5 rounded-3xl shadow-2xl shadow-indigo-100 hover:bg-indigo-700 transition text-[10px] uppercase tracking-[0.2em] disabled:opacity-30"
                 >
                   {loadingPlan ? <i className="fas fa-spinner fa-spin mr-3"></i> : <i className="fas fa-magic mr-3"></i>} 
-                  {loadingPlan ? 'GENERATING PLAN...' : 'GENERATE CBE LESSON PLAN'}
+                  {loadingPlan ? 'ARCHITECTING PLAN...' : 'GENERATE CBE LESSON PLAN'}
                 </button>
                 <button 
                   onClick={() => handleGenerateNotes()} 
@@ -205,6 +216,7 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm z-10 rounded-[2.5rem] print:hidden">
                         <i className="fas fa-magic text-4xl text-indigo-600 animate-bounce mb-4"></i>
                         <p className="font-black text-indigo-900 uppercase tracking-widest text-[10px]">Architecting Lesson Plan...</p>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-2">Checking Quota & Reasoning...</p>
                      </div>
                    ) : plan ? (
                      <div className="animate-in fade-in duration-700">
@@ -224,13 +236,13 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                         </div>
                         
                         <div className="text-center mb-12 border-b-2 border-black pb-4">
-                           <h1 className="text-xl font-black uppercase tracking-tight underline underline-offset-4 mb-2">
+                           <h1 className="text-xl font-black uppercase tracking-tight underline underline-offset-4 mb-2 text-black">
                               {plan.year || 2025} RATIONALIZED {plan.learningArea.toUpperCase()} LESSON PLANS
                            </h1>
-                           <h2 className="text-lg font-black uppercase tracking-widest mb-4">
+                           <h2 className="text-lg font-black uppercase tracking-widest mb-4 text-black">
                               TERM {plan.term || 'TWO'} - {plan.textbook || 'SPARK INTEGRATED SCIENCE'}
                            </h2>
-                           <div className="text-left font-black uppercase text-sm mt-6">
+                           <div className="text-left font-black uppercase text-sm mt-6 text-black">
                               WEEK {plan.week || 1}: LESSON {plan.lessonNumber || 1}
                            </div>
                         </div>
@@ -247,25 +259,25 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                                     <td className="border border-black p-2 font-black w-24">ROLL</td>
                                  </tr>
                                  <tr>
-                                    <td className="border border-black p-4 font-bold text-center">{userProfile.school || '-'}</td>
-                                    <td className="border border-black p-4 font-bold text-center">{plan.grade}</td>
-                                    <td className="border border-black p-4 font-bold text-center uppercase">{plan.learningArea}</td>
-                                    <td className="border border-black p-4"></td>
-                                    <td className="border border-black p-4"></td>
-                                    <td className="border border-black p-4"></td>
+                                    <td className="border border-black p-4 font-bold text-center text-black">{userProfile.school || '-'}</td>
+                                    <td className="border border-black p-4 font-bold text-center text-black">{plan.grade}</td>
+                                    <td className="border border-black p-4 font-bold text-center uppercase text-black">{plan.learningArea}</td>
+                                    <td className="border border-black p-4 text-black"></td>
+                                    <td className="border border-black p-4 text-black"></td>
+                                    <td className="border border-black p-4 text-black"></td>
                                  </tr>
                               </tbody>
                            </table>
                         </div>
 
-                        <div className="space-y-8 text-[11px] leading-relaxed">
+                        <div className="space-y-8 text-[11px] leading-relaxed text-black">
                            <div className="space-y-1">
                               <p className="font-black">Strand: <span className="font-bold text-slate-700 print:text-black">{plan.strand}</span></p>
                               <p className="font-black">Sub Strand: <span className="font-bold text-slate-700 print:text-black">{plan.subStrand}</span></p>
                            </div>
 
                            <div>
-                              <h4 className="font-black uppercase tracking-widest mb-2">Specific Learning Outcomes:</h4>
+                              <h4 className="font-black uppercase tracking-widest mb-2 underline">Specific Learning Outcomes:</h4>
                               <p className="font-bold italic mb-2">By the end of the lesson, learners should be able to:</p>
                               <ul className="list-disc pl-5 space-y-1">
                                 {plan.outcomes.map((o, idx) => <li key={idx} className="font-medium text-slate-700 print:text-black">{o}</li>)}
@@ -273,14 +285,14 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                            </div>
 
                            <div>
-                              <h4 className="font-black uppercase tracking-widest mb-2">Key Inquiry Questions:</h4>
+                              <h4 className="font-black uppercase tracking-widest mb-2 underline">Key Inquiry Questions:</h4>
                               <ul className="list-disc pl-5 space-y-1">
                                 {(plan.keyInquiryQuestions || []).map((q, idx) => <li key={idx} className="font-medium">{q}</li>)}
                               </ul>
                            </div>
 
                            <div>
-                              <h4 className="font-black uppercase tracking-widest mb-2">Learning Resources:</h4>
+                              <h4 className="font-black uppercase tracking-widest mb-2 underline">Learning Resources:</h4>
                               <ul className="list-disc pl-5 space-y-1 font-medium italic">
                                 {plan.learningResources.map((r, i) => <li key={i}>{r}</li>)}
                               </ul>
@@ -319,7 +331,7 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                            </div>
 
                            <div>
-                              <h4 className="font-black uppercase tracking-widest mb-2">Extended Activities:</h4>
+                              <h4 className="font-black uppercase tracking-widest mb-2 underline">Extended Activities:</h4>
                               <ul className="list-disc pl-5 space-y-1">
                                  {(plan.extendedActivities || []).map((item, idx) => <li key={idx} className="font-medium">{item}</li>)}
                               </ul>
@@ -354,19 +366,19 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                              <button onClick={handleDownloadNotesDocx} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition shadow-lg shadow-emerald-100">
                                 <i className="fas fa-file-word"></i>
                              </button>
-                             <button onClick={saveCurrentNotes} className="bg-emerald-500 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition shadow-lg shadow-emerald-100">
+                             <button onClick={saveCurrentNotes} className="bg-emerald-50 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition shadow-lg shadow-emerald-100">
                                 <i className="fas fa-save mr-2"></i> Save
                              </button>
                            </div>
                         </div>
                         
                         <div className="mb-10 text-center print:block hidden">
-                            <h1 className="text-xl font-black uppercase tracking-tighter mb-1">{input.subject} Notes</h1>
-                            <p className="text-[10px] font-bold uppercase tracking-widest">{input.grade} • {input.subStrand}</p>
+                            <h1 className="text-xl font-black uppercase tracking-tighter mb-1 text-black">{input.subject} Notes</h1>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-black">{input.grade} • {input.subStrand}</p>
                             <hr className="mt-4 border-black" />
                         </div>
 
-                        <div className="prose prose-sm max-w-none print:prose-black">
+                        <div className="prose prose-sm max-w-none print:prose-black text-black">
                             <ReactMarkdown remarkPlugins={[remarkGfm]}>{notes}</ReactMarkdown>
                         </div>
                      </div>
