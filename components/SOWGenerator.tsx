@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { generateSOW } from '../services/geminiService';
 import { exportSOWToDocx } from '../services/exportService';
@@ -135,9 +136,9 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       const datedSow = calculateDatesFromTimetable(enriched);
       setPersistedSow(datedSow);
       setPersistedMeta(formData);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("AI Generation Error.");
+      alert(err.message || "AI Generation Error. Please check your internet connection or try a shorter subject name.");
     } finally {
       setLoading(false);
     }
@@ -293,7 +294,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
           </div>
 
           <div className="bg-white p-6 md:p-12 border-2 border-slate-100 shadow-2xl mb-32 print:p-0 print:border-none sow-card rounded-[2rem]">
-             {/* Table code remains the same as previously fixed */}
              <div className="text-center mb-8 md:mb-12">
               <h1 className="text-lg md:text-2xl font-black uppercase underline decoration-2 underline-offset-8 mb-6 md:mb-10 leading-relaxed px-4">
                 {formData.year} {formData.subject} {formData.grade} SCHEMES OF WORK TERM {getTermString(formData.term)}

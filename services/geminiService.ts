@@ -12,16 +12,23 @@ const getAIClient = () => {
 const cleanJsonString = (str: string): string => {
   if (!str) return "";
   
-  // Find the first occurrence of { or [ and the last occurrence of } or ]
+  // Try to find the first JSON structure start
   const firstBrace = str.indexOf('{');
   const firstBracket = str.indexOf('[');
+  
+  let start = -1;
+  if (firstBrace !== -1 && firstBracket !== -1) {
+    start = Math.min(firstBrace, firstBracket);
+  } else if (firstBrace !== -1) {
+    start = firstBrace;
+  } else if (firstBracket !== -1) {
+    start = firstBracket;
+  }
+
+  // Try to find the last JSON structure end
   const lastBrace = str.lastIndexOf('}');
   const lastBracket = str.lastIndexOf(']');
-  
-  // Determine which structure starts first (Array vs Object)
-  const start = (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) ? firstBrace : firstBracket;
-  // Determine which structure ends last
-  const end = (lastBrace > lastBracket) ? lastBrace : lastBracket;
+  const end = Math.max(lastBrace, lastBracket);
   
   if (start !== -1 && end !== -1 && end > start) {
     return str.substring(start, end + 1);
@@ -53,9 +60,10 @@ export const generateSOW = async (
       - Assessment: formative methods.
       `,
       config: {
-        maxOutputTokens: 6000,
-        thinkingConfig: { thinkingBudget: 1024 },
-        systemInstruction: "You are a KICD Curriculum Specialist. Output strictly valid JSON arrays. Follow Kenyan CBE 2024/2025 rationalized standards.",
+        maxOutputTokens: 8000,
+        // Disable thinking budget to stay within the 10-second server timeout limit
+        thinkingConfig: { thinkingBudget: 0 },
+        systemInstruction: "You are a KICD Curriculum Specialist. Output strictly valid JSON arrays only. No preamble. No conversational text. Follow Kenyan CBE 2024/2025 rationalized standards exactly.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -80,7 +88,12 @@ export const generateSOW = async (
     });
 
     const jsonStr = cleanJsonString(response.text || "");
-    return JSON.parse(jsonStr) as SOWRow[];
+    try {
+        return JSON.parse(jsonStr) as SOWRow[];
+    } catch (parseError) {
+        console.error("JSON Parse Error. Raw string was:", jsonStr);
+        throw new Error("The AI provided a response in an incorrect format. Please try again.");
+    }
   } catch (error) {
     console.error("SOW Generation Failed:", error);
     throw error;
@@ -114,8 +127,9 @@ export const generateLessonPlan = async (
       `,
       config: {
         maxOutputTokens: 6000,
-        thinkingConfig: { thinkingBudget: 1024 },
-        systemInstruction: "Act as a Senior KICD Consultant. Output MUST be valid JSON. Ensure deep pedagogical detail in activities.",
+        // Disable thinking budget to stay within the 10-second server timeout limit
+        thinkingConfig: { thinkingBudget: 0 },
+        systemInstruction: "Act as a Senior KICD Consultant. Output MUST be valid JSON only. No text outside the JSON. Ensure deep pedagogical detail in activities.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -163,7 +177,12 @@ export const generateLessonPlan = async (
     });
 
     const jsonStr = cleanJsonString(response.text || "");
-    return JSON.parse(jsonStr) as LessonPlan;
+    try {
+        return JSON.parse(jsonStr) as LessonPlan;
+    } catch (parseError) {
+        console.error("JSON Parse Error. Raw string was:", jsonStr);
+        throw new Error("The AI provided a response in an incorrect format. Please try again.");
+    }
   } catch (error) {
     console.error("Lesson Plan Generation Failed:", error);
     throw error;
@@ -189,7 +208,7 @@ export const generateLessonNotes = async (
       `,
       config: {
         maxOutputTokens: 6000,
-        thinkingConfig: { thinkingBudget: 1024 },
+        thinkingConfig: { thinkingBudget: 0 },
         systemInstruction: "Create educational study notes following Kenyan CBE guidelines. Use clear headers and formatting.",
       }
     });
