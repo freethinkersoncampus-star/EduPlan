@@ -1,19 +1,25 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { SOWRow, LessonPlan } from "../types";
 
-// Always initialize the Google GenAI client using the API key from process.env.API_KEY
+/**
+ * EDUPLAN AI SERVICE - POWERED BY GEMINI 3 PRO
+ * Implementation using the official @google/genai SDK.
+ */
+
+// Initialize the Gemini API client using the environment variable.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
- * Enhanced retry logic with exponential backoff for handling API rate limits.
+ * Maintains the existing retry signature for platform stability.
  */
 async function callWithRetry<T>(fn: () => Promise<T>, retries = 3, delay = 3000): Promise<T> {
   try {
     return await fn();
   } catch (error: any) {
-    const isRateLimit = error?.message?.includes('429') || error?.message?.includes('quota');
+    const isRateLimit = error?.message?.toLowerCase().includes('429') || 
+                        error?.message?.toLowerCase().includes('quota');
     if (isRateLimit && retries > 0) {
-      console.warn(`Rate limit hit. Waiting ${delay}ms before retry... (${retries} left)`);
+      console.warn(`AI busy. Retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
       return callWithRetry(fn, retries - 1, delay * 2);
     }
@@ -34,20 +40,13 @@ export const generateSOW = async (
       CONTEXT: ${knowledgeContext || 'KICD Rationalized Curriculum 2024/2025'}
       TASK: Generate a CBE Rationalized Scheme of Work for ${subject}, ${grade}, Term ${term}.
       Generate exactly ${lessonSlotsCount} lessons starting from Week ${weekOffset}.
-      
-      CBE REQUIREMENTS:
-      - Outcomes: measurable
-      - Experiences: learner-centered activities.
-      - Resources: Kenyan textbooks and local materials.
-      - Assessment: formative methods.
     `;
 
-    // Using gemini-3-pro-preview for complex curriculum logic and reasoning tasks
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      contents: prompt,
       config: {
-        systemInstruction: "You are a KICD Curriculum Specialist. Output a JSON object with a key 'lessons' containing an array of SOWRow objects.",
+        systemInstruction: "You are a KICD Curriculum Specialist. You output valid JSON objects matching the provided schema.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -77,16 +76,9 @@ export const generateSOW = async (
       }
     });
 
-    const text = response.text;
-    if (!text) throw new Error("AI returned empty content.");
-
-    try {
-      const parsed = JSON.parse(text);
-      return (parsed.lessons || []) as SOWRow[];
-    } catch (e) {
-      console.error("JSON Parse Error:", text);
-      throw new Error("Curriculum Architect returned malformed data. Please try again.");
-    }
+    // The .text property directly returns the extracted string output.
+    const parsed = JSON.parse(response.text || '{}');
+    return (parsed.lessons || []) as SOWRow[];
   });
 };
 
@@ -103,15 +95,14 @@ export const generateLessonPlan = async (
       SUBJECT: ${subject} | LEVEL: ${grade} | TOPIC: ${subStrand}. 
       CONTEXT: ${knowledgeContext || 'KICD CBE'}
       SCHOOL: ${schoolName}
-      TASK: Generate a complete KICD CBE Lesson Plan. 
+      TASK: Generate a complete KICD CBE Lesson Plan in JSON format matching the standard pedagogical schema.
     `;
 
-    // Using gemini-3-pro-preview for structured pedagogical content generation
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      contents: prompt,
       config: {
-        systemInstruction: "Act as a KICD Consultant. Output a STRICTLY valid JSON object matching the LessonPlan schema.",
+        systemInstruction: "You are a KICD Consultant specializing in CBE Lesson Planning. Output a detailed JSON object.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -150,18 +141,16 @@ export const generateLessonPlan = async (
             teacherSelfEvaluation: { type: Type.STRING }
           },
           required: [
-            'school', 'year', 'term', 'textbook', 'week', 'lessonNumber', 
-            'learningArea', 'grade', 'strand', 'subStrand', 'keyInquiryQuestions', 
-            'outcomes', 'learningResources', 'introduction', 'lessonDevelopment', 
-            'conclusion', 'extendedActivities', 'teacherSelfEvaluation'
+            'school', 'year', 'term', 'textbook', 'week', 'lessonNumber', 'learningArea', 'grade', 
+            'strand', 'subStrand', 'keyInquiryQuestions', 'outcomes', 'learningResources', 
+            'introduction', 'lessonDevelopment', 'conclusion', 'extendedActivities', 'teacherSelfEvaluation'
           ]
         }
       }
     });
     
-    const text = response.text;
-    if (!text) throw new Error("Empty plan response from AI.");
-    return JSON.parse(text) as LessonPlan;
+    // The .text property directly returns the extracted string output.
+    return JSON.parse(response.text || '{}') as LessonPlan;
   });
 };
 
@@ -177,15 +166,15 @@ export const generateLessonNotes = async (
     KNOWLEDGE: ${knowledgeContext || 'Standard CBE'}
     Generate comprehensive study notes for learners. Use Markdown for formatting.`;
 
-    // Using gemini-3-flash-preview for general text generation tasks
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      contents: prompt,
       config: {
         systemInstruction: "You are a specialized subject teacher. Generate detailed, accurate study notes in Markdown."
       }
     });
 
-    return response.text || "";
+    // The .text property directly returns the extracted string output.
+    return response.text || "Failed to generate notes.";
   });
 };

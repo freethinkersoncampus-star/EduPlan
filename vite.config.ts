@@ -1,11 +1,11 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
-// Import process directly from node:process to avoid issues with named exports for cwd
-import process from 'node:process';
+// Import cwd directly from node:process to avoid issues with named exports or global types
+import { cwd } from 'node:process';
 
 export default defineConfig(({ mode }) => {
-  // Use process.cwd() to correctly identify the current working directory for environment variable loading
-  const env = loadEnv(mode, process.cwd(), '');
+  // Use the imported cwd() function to correctly identify the current working directory
+  const env = loadEnv(mode, cwd(), '');
   
   const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL || '';
   const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || '';
