@@ -10,25 +10,24 @@ const getAIClient = () => {
 };
 
 const cleanJsonString = (str: string): string => {
-  // Removes markdown code blocks and finds the outermost JSON structure
-  let cleaned = str.replace(/```json/g, "").replace(/```/g, "").trim();
+  if (!str) return "";
   
-  const firstArray = cleaned.indexOf('[');
-  const lastArray = cleaned.lastIndexOf(']');
-  const firstObject = cleaned.indexOf('{');
-  const lastObject = cleaned.lastIndexOf('}');
-
-  const arrayStart = firstArray !== -1 ? firstArray : Infinity;
-  const objectStart = firstObject !== -1 ? firstObject : Infinity;
-
-  // Extract the true JSON part to avoid errors from model "chatter"
-  if (arrayStart < objectStart && lastArray !== -1) {
-    return cleaned.substring(firstArray, lastArray + 1);
-  } else if (lastObject !== -1 && firstObject !== -1) {
-    return cleaned.substring(firstObject, lastObject + 1);
+  // Find the first occurrence of { or [ and the last occurrence of } or ]
+  const firstBrace = str.indexOf('{');
+  const firstBracket = str.indexOf('[');
+  const lastBrace = str.lastIndexOf('}');
+  const lastBracket = str.lastIndexOf(']');
+  
+  // Determine which structure starts first (Array vs Object)
+  const start = (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) ? firstBrace : firstBracket;
+  // Determine which structure ends last
+  const end = (lastBrace > lastBracket) ? lastBrace : lastBracket;
+  
+  if (start !== -1 && end !== -1 && end > start) {
+    return str.substring(start, end + 1);
   }
   
-  return cleaned;
+  return str.replace(/```json/g, "").replace(/```/g, "").trim();
 };
 
 export const generateSOW = async (
@@ -41,21 +40,22 @@ export const generateSOW = async (
   try {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: `
       CONTEXT: ${knowledgeContext || 'KICD Rationalized Curriculum 2024/2025'}
       TASK: Generate a CBE Rationalized Scheme of Work for ${subject}, ${grade}, Term ${term}.
       Generate exactly ${lessonSlotsCount} lessons.
       
-      STRICT CBE REQUIREMENTS:
-      - Outcomes must be measurable (e.g., "By the end of the lesson, the learner should be able to...")
-      - Teaching Experiences must be learner-centered.
-      - Resources must cite Kenyan textbooks and local materials.
-      - Assessment must be formative.
+      CBE REQUIREMENTS:
+      - Outcomes: measurable (By the end of the lesson, the learner should be able to...)
+      - Experiences: learner-centered activities.
+      - Resources: Kenyan textbooks and local materials.
+      - Assessment: formative methods.
       `,
       config: {
-        thinkingConfig: { thinkingBudget: 32768 },
-        systemInstruction: "You are a KICD Curriculum Specialist. You must only output valid JSON matching the provided schema. Follow the Kenyan CBE 2024/2025 rationalized standards strictly.",
+        maxOutputTokens: 6000,
+        thinkingConfig: { thinkingBudget: 1024 },
+        systemInstruction: "You are a KICD Curriculum Specialist. Output strictly valid JSON arrays. Follow Kenyan CBE 2024/2025 rationalized standards.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -98,25 +98,24 @@ export const generateLessonPlan = async (
   try {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', 
+      model: 'gemini-3-flash-preview', 
       contents: `
-      CONTEXT: ${knowledgeContext || 'KICD Standards'}
-      SUBJECT: ${subject}
-      LEVEL: ${grade}
-      TOPIC: ${subStrand}
+      SUBJECT: ${subject} | LEVEL: ${grade} | TOPIC: ${subStrand}
+      CONTEXT: ${knowledgeContext || 'Standard KICD CBE'}
       
-      GENERATE A DETAILED CBE LESSON PLAN FOLLOWING THESE SECTIONS:
-      1. SPECIFIC LEARNING OUTCOMES (Measurable)
-      2. KEY INQUIRY QUESTIONS (Open-ended)
-      3. LEARNING RESOURCES (Kenyan context)
-      4. ORGANIZATION OF LEARNING:
-         - Introduction (5 min): Catchy start
-         - Lesson Development (30 min): Steps 1, 2, 3 (Learner Activities)
-         - Conclusion (5 min): Summary & Reflection
+      GENERATE A DETAILED CBE LESSON PLAN:
+      1. OUTCOMES (Measurable)
+      2. INQUIRY QUESTIONS (Open-ended)
+      3. RESOURCES (Kenyan Context)
+      4. ORGANIZATION:
+         - Intro (5 min): Stimulate interest
+         - Development (30 min): Learner-centered steps
+         - Conclusion (5 min): Reflection
       `,
       config: {
-        thinkingConfig: { thinkingBudget: 32768 },
-        systemInstruction: "Act as a Senior Pedagogy Consultant for the Kenyan Ministry of Education. Output MUST be valid JSON. Ensure pedagogical depth in the 'lessonDevelopment' section.",
+        maxOutputTokens: 6000,
+        thinkingConfig: { thinkingBudget: 1024 },
+        systemInstruction: "Act as a Senior KICD Consultant. Output MUST be valid JSON. Ensure deep pedagogical detail in activities.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -181,19 +180,17 @@ export const generateLessonNotes = async (
   try {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: `
-      GENERATE DETAILED STUDY NOTES
-      Subject: ${subject}
-      Level: ${grade}
-      Topic: ${topic}
+      SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}
+      ${knowledgeContext ? `REFERENCE DATA: ${knowledgeContext}` : ''}
       
-      ${knowledgeContext ? `REFERENCE: ${knowledgeContext}` : ''}
-      Format: Markdown with clear headers, bullet points, and a summary section.
+      Generate comprehensive, learner-friendly study notes in Markdown format. Use Kenyan terminology.
       `,
       config: {
-        thinkingConfig: { thinkingBudget: 32768 },
-        systemInstruction: "Create educational, engaging study notes for Kenyan learners. Use Kenyan English and terminology. Follow CBE competency guidelines.",
+        maxOutputTokens: 6000,
+        thinkingConfig: { thinkingBudget: 1024 },
+        systemInstruction: "Create educational study notes following Kenyan CBE guidelines. Use clear headers and formatting.",
       }
     });
 
