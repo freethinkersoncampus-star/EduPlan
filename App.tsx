@@ -63,7 +63,7 @@ const MobileNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTa
   </nav>
 );
 
-const ProfileModal = ({ isOpen, onClose, profile, setProfile }: { isOpen: boolean, onClose: () => void, profile: UserProfile, setProfile: (p: UserProfile) => void }) => {
+const ProfileModal = ({ isOpen, onClose, profile, setProfile, onLogout }: { isOpen: boolean, onClose: () => void, profile: UserProfile, setProfile: (p: UserProfile) => void, onLogout: () => void }) => {
   const [tempProfile, setTempProfile] = useState(profile);
 
   useEffect(() => {
@@ -113,12 +113,19 @@ const ProfileModal = ({ isOpen, onClose, profile, setProfile }: { isOpen: boolea
             />
           </div>
         </div>
-        <div className="p-8 pt-0">
+        <div className="p-8 pt-0 space-y-3">
           <button 
             onClick={() => { setProfile(tempProfile); onClose(); }}
             className="w-full bg-indigo-600 text-white py-5 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition active:scale-95"
           >
             Update Profile Information
+          </button>
+          <button 
+            onClick={() => { onClose(); onLogout(); }}
+            className="md:hidden w-full bg-white border-2 border-red-50 text-red-500 py-4 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-red-50 transition active:scale-95 flex items-center justify-center gap-2"
+          >
+            <i className="fas fa-sign-out-alt"></i>
+            Sign Out Account
           </button>
         </div>
       </div>
@@ -348,6 +355,7 @@ const App: React.FC = () => {
           onClose={() => setIsProfileModalOpen(false)} 
           profile={profile} 
           setProfile={wrapUpdate(setProfile)} 
+          onLogout={handleLogout}
         />
       </main>
     </div>
