@@ -10,28 +10,35 @@ const getAIClient = () => {
 };
 
 /**
- * Helper to handle 429 Rate Limit errors with exponential backoff.
- * This directly addresses the "Quota Exceeded" errors seen in the user's screenshots.
+ * Enhanced retry logic with longer backoff to satisfy Free Tier constraints.
+ * This directly mitigates the 429 "Quota Exceeded" error by being more patient.
  */
-async function callWithRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> {
+async function callWithRetry<T>(fn: () => Promise<T>, retries = 3, delay = 5000): Promise<T> {
   try {
     return await fn();
   } catch (error: any) {
     const isRateLimit = error?.message?.includes('429') || error?.message?.includes('quota');
     if (isRateLimit && retries > 0) {
-      console.warn(`Rate limit hit. Retrying in ${delay}ms... (${retries} attempts left)`);
+      console.warn(`Rate limit hit. Waiting ${delay}ms before retry... (${retries} left)`);
       await new Promise(resolve => setTimeout(resolve, delay));
-      return callWithRetry(fn, retries - 1, delay * 2);
+      // Exponential backoff: increase delay for next attempt
+      return callWithRetry(fn, retries - 1, delay * 2.5);
     }
     throw error;
   }
 }
 
+/**
+ * Robust JSON cleaner to prevent "Unexpected end of JSON input" crashes.
+ */
 const cleanJsonString = (str: string): string => {
-  if (!str) return "";
+  if (!str || typeof str !== 'string') return "";
+  
+  // Find the boundaries of the JSON payload
   const firstBrace = str.indexOf('{');
   const firstBracket = str.indexOf('[');
   let start = -1;
+  
   if (firstBrace !== -1 && firstBracket !== -1) {
     start = Math.min(firstBrace, firstBracket);
   } else if (firstBrace !== -1) {
@@ -39,15 +46,16 @@ const cleanJsonString = (str: string): string => {
   } else if (firstBracket !== -1) {
     start = firstBracket;
   }
+  
   const lastBrace = str.lastIndexOf('}');
   const lastBracket = str.lastIndexOf(']');
   const end = Math.max(lastBrace, lastBracket);
+  
   if (start !== -1 && end !== -1 && end > start) {
-    let json = str.substring(start, end + 1);
-    if (json.startsWith('[') && !json.endsWith(']')) json += ']';
-    if (json.startsWith('{') && !json.endsWith('}')) json += '}';
-    return json;
+    return str.substring(start, end + 1);
   }
+  
+  // Fallback cleanup
   return str.replace(/```json/g, "").replace(/```/g, "").trim();
 };
 
@@ -61,7 +69,6 @@ export const generateSOW = async (
 ): Promise<SOWRow[]> => {
   return callWithRetry(async () => {
     const ai = getAIClient();
-    // Use gemini-3-flash-preview as per standard task recommendations for curriculum generation
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: `
@@ -70,14 +77,14 @@ export const generateSOW = async (
       Generate exactly ${lessonSlotsCount} lessons starting from Week ${weekOffset}.
       
       CBE REQUIREMENTS:
-      - Outcomes: measurable (By the end of the lesson, the learner should be able to...)
+      - Outcomes: measurable
       - Experiences: learner-centered activities.
       - Resources: Kenyan textbooks and local materials.
       - Assessment: formative methods.
       `,
       config: {
-        maxOutputTokens: 8000,
-        systemInstruction: "You are a KICD Curriculum Specialist. Output STRICTLY a valid JSON array. No markdown. No conversational text.",
+        maxOutputTokens: 15000, // Increased for larger single-pass term generations
+        systemInstruction: "You are a KICD Curriculum Specialist. Output ONLY valid JSON array. No conversational text.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -100,8 +107,20 @@ export const generateSOW = async (
         }
       }
     });
-    const jsonStr = cleanJsonString(response.text || "");
-    return JSON.parse(jsonStr) as SOWRow[];
+
+    const rawText = response.text || "";
+    const jsonStr = cleanJsonString(rawText);
+    
+    if (!jsonStr) {
+      throw new Error("AI returned an empty or invalid format. Please try again.");
+    }
+
+    try {
+      return JSON.parse(jsonStr) as SOWRow[];
+    } catch (e) {
+      console.error("JSON Parse Error on:", jsonStr);
+      throw new Error("Curriculum Architect returned malformed data. Retrying may fix this.");
+    }
   });
 };
 
@@ -115,17 +134,12 @@ export const generateLessonPlan = async (
 ): Promise<LessonPlan> => {
   return callWithRetry(async () => {
     const ai = getAIClient();
-    // Use gemini-3-flash-preview for complex reasoning in lesson planning
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
-      contents: `
-      SUBJECT: ${subject} | LEVEL: ${grade} | TOPIC: ${subStrand}
-      CONTEXT: ${knowledgeContext || 'Standard KICD CBE'}
-      TASK: Generate a DETAILED CBE LESSON PLAN. You MUST provide real values for all fields including 'roll', 'textbook', and 'time'.
-      `,
+      contents: `SUBJECT: ${subject} | LEVEL: ${grade} | TOPIC: ${subStrand}. CONTEXT: ${knowledgeContext || 'KICD CBE'}`,
       config: {
-        maxOutputTokens: 6000,
-        systemInstruction: "Act as a Senior KICD Consultant. Output STRICTLY valid JSON. Do not omit roll, textbook, or year.",
+        maxOutputTokens: 8000,
+        systemInstruction: "Act as a KICD Consultant. Output STRICTLY valid JSON.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -163,15 +177,13 @@ export const generateLessonPlan = async (
             extendedActivities: { type: Type.ARRAY, items: { type: Type.STRING } },
             teacherSelfEvaluation: { type: Type.STRING }
           },
-          required: [
-            "school", "year", "term", "learningArea", "grade", "strand", "subStrand", 
-            "outcomes", "introduction", "lessonDevelopment", "conclusion", 
-            "extendedActivities", "keyInquiryQuestions", "learningResources", "textbook", "roll"
-          ]
+          required: ["school", "year", "term", "learningArea", "grade", "strand", "subStrand", "outcomes", "introduction", "lessonDevelopment", "conclusion", "extendedActivities", "keyInquiryQuestions", "learningResources", "textbook", "roll"]
         }
       }
     });
+    
     const jsonStr = cleanJsonString(response.text || "");
+    if (!jsonStr) throw new Error("Empty plan response from AI.");
     return JSON.parse(jsonStr) as LessonPlan;
   });
 };
@@ -185,13 +197,10 @@ export const generateLessonNotes = async (
 ): Promise<string> => {
   return callWithRetry(async () => {
     const ai = getAIClient();
-    // Use gemini-3-flash-preview for efficient pedagogical note generation
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}. Generate detailed pedagogical study notes following Kenyan CBE guidelines. Use Markdown.`,
-      config: {
-        maxOutputTokens: 6000
-      }
+      contents: `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}. Markdown output.`,
+      config: { maxOutputTokens: 6000 }
     });
     return response.text || "Notes generation failed.";
   });

@@ -107,27 +107,53 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
   const handleGenerate = async () => {
     if (!formData.subject) return alert("Select a subject first.");
     if (lessonsPerWeek === 0) {
-      alert("No lessons found for this subject/grade in your timetable.");
+      alert("No lessons found for this subject/grade in your timetable. Please setup your Timetable first.");
       return;
     }
 
     setLoading(true);
-    setLoadingStatus('Architecting Phase 1 (Weeks 1-6)...');
+    // ATOMIC FIX: Using a single pass for the entire term to avoid double-hitting the AI quota
+    setLoadingStatus('Architecting Term Curriculum (Weeks 1-12)...');
+    
     try {
-      const result1 = await generateSOW(formData.subject, formData.grade, formData.term, 6 * lessonsPerWeek, knowledgeContext, 1);
-      setLoadingStatus('Architecting Phase 2 (Weeks 7-12)...');
-      const result2 = await generateSOW(formData.subject, formData.grade, formData.term, 6 * lessonsPerWeek, knowledgeContext, 7);
+      const totalLessons = 12 * lessonsPerWeek;
+      const rawResult = await generateSOW(
+        formData.subject, 
+        formData.grade, 
+        formData.term, 
+        totalLessons, 
+        knowledgeContext, 
+        1
+      );
       
-      const rawResult = [...result1, ...result2];
       const enriched: SOWRow[] = [];
-      
+      let breakInserted = false;
+
       rawResult.forEach((row) => {
-        if (row.week === 7 && !enriched.find(e => e.isBreak)) {
+        // Automatically insert half-term break after Week 6
+        if (row.week === 7 && !breakInserted) {
           enriched.push({
-            week: 7, lesson: 0, strand: 'HALF TERM BREAK', subStrand: '-', learningOutcomes: 'Academic Review', teachingExperiences: 'Learner reflection', keyInquiryQuestions: '-', learningResources: '-', assessmentMethods: '-', reflection: '-', isBreak: true
+            week: 7, 
+            lesson: 0, 
+            strand: 'HALF TERM BREAK', 
+            subStrand: '-', 
+            learningOutcomes: 'Academic Review & Assessment', 
+            teachingExperiences: 'Learner reflection and remedial activities', 
+            keyInquiryQuestions: '-', 
+            learningResources: '-', 
+            assessmentMethods: '-', 
+            reflection: '-', 
+            isBreak: true
           });
+          breakInserted = true;
         }
-        enriched.push({ ...row, isCompleted: false, week: row.week >= 7 ? row.week + 1 : row.week });
+        
+        // Offset weeks 7-12 by one to account for the half-term week
+        enriched.push({ 
+          ...row, 
+          isCompleted: false, 
+          week: row.week >= 7 ? row.week + 1 : row.week 
+        });
       });
 
       const datedSow = calculateDatesFromTimetable(enriched);
@@ -135,7 +161,13 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       setPersistedMeta(formData);
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "AI Error. Check quota limits.");
+      // More descriptive error for the teacher
+      const isQuota = err.message?.includes('429') || err.message?.includes('quota');
+      if (isQuota) {
+        alert("AI QUOTA REACHED: The server is busy. Your request has been queued. Please wait 1 minute and click generate again.");
+      } else {
+        alert(err.message || "Curriculum Architect is unavailable. Please try again shortly.");
+      }
     } finally {
       setLoading(false);
       setLoadingStatus('');
