@@ -11,42 +11,30 @@ import { supabase, signOut as supabaseSignOut } from './services/supabase';
 import { LessonSlot, UserProfile, KnowledgeDocument, SOWRow, SavedSOW, SavedLessonPlan, SavedLessonNote } from './types';
 
 const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
-  { 
-    id: 'kicd-eyp-2025', 
-    title: 'KICD Early Years Education (PP1-PP2) Design', 
-    content: 'Rationalized Learning Areas for Early Years: 1. Language Activities 2. Mathematical Activities 3. Environmental Activities 4. Psychomotor and Creative Activities 5. Religious Education Activities. Focus: Transition from home to school, basic literacy, numeracy, and social-emotional development.', 
-    type: 'KICD', size: '12.4 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true 
-  },
-  { 
-    id: 'kicd-lp-2025', 
-    title: 'KICD Lower Primary (Grade 1-3) Design', 
-    content: 'Learning Areas: Literacy, Kiswahili/KSL, English, Mathematics, Environmental Activities, Hygiene and Nutrition, Religious Education (CRE/IRE/HRE), Creative Activities (Art, Craft, Music), Physical and Health Education. Focus: Core competencies including Communication, Collaboration, and Critical Thinking.', 
-    type: 'KICD', size: '18.7 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true 
-  },
-  { 
-    id: 'kicd-up-2025', 
-    title: 'KICD Upper Primary (Grade 4-6) Design', 
-    content: 'Rationalized Subjects: English, Kiswahili/KSL, Mathematics, Science and Technology, Agriculture and Nutrition, Social Studies, Religious Education, Creative Arts (Art, Craft, Music, Theatre), Physical and Health Education. Learning outcomes focus on applying knowledge to real-life situations.', 
-    type: 'KICD', size: '22.1 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true 
-  },
-  { 
-    id: 'kicd-js-2025', 
-    title: 'KICD Junior School (Grade 7-9) Design', 
-    content: 'Core Learning Areas: English, Kiswahili/KSL, Mathematics, Pre-Technical Studies, Integrated Science, Social Studies, Agriculture and Nutrition, Religious Education, Business Studies, Life Skills Education, Physical Education and Sports, Creative Arts and Sports. Focus: Career exploration and technical skill foundation.', 
-    type: 'KICD', size: '34.5 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true 
-  },
-  { 
-    id: 'kicd-rationalization-memo', 
-    title: 'Official Rationalization of Learning Areas (2024 Update)', 
-    content: 'Directive on reducing the number of subjects to ease learner workload. Upper Primary reduced to 8 subjects. Junior School reduced to 9 subjects. This document outlines the integration of Home Science into Agriculture and Nutrition, and the merging of Creative Arts.', 
-    type: 'KICD', size: '4.2 MB', date: 'Dec 2024', category: 'Official Memo', isActiveContext: true, isSystemDoc: true 
-  },
-  { 
-    id: 'sys-kts-standards', 
-    title: 'Kenya Professional Standards for Teachers', 
-    content: 'Guidelines on teacher professional conduct, pedagogical knowledge, and professional development. Teachers are required to use learner-centered approaches and maintain digital records of learner progress (Formative Assessment).', 
-    type: 'TSC', size: '3.1 MB', date: '2024', category: 'Standards', isActiveContext: true, isSystemDoc: true 
-  }
+  // PRE-PRIMARY
+  { id: 'kicd-pp-lang', title: 'PP1-PP2: Language Activities Design', content: 'Focus: Pre-reading, pre-writing, listening and speaking skills. Competencies: Communication and Collaboration.', type: 'KICD', size: '2.1 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'kicd-pp-math', title: 'PP1-PP2: Mathematical Activities Design', content: 'Focus: Classification, number recognition, simple patterns, and measurement activities.', type: 'KICD', size: '1.8 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
+  
+  // LOWER PRIMARY
+  { id: 'kicd-lp-eng', title: 'Grade 1-3: English Language Design', content: 'Rationalized Focus: Literacy, grammar foundation, and creative writing. Focus on core competencies.', type: 'KICD', size: '3.4 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'kicd-lp-env', title: 'Grade 1-3: Environmental Activities Design', content: 'Social and natural environment, health, safety and nutrition integrated into daily experiences.', type: 'KICD', size: '2.9 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+
+  // UPPER PRIMARY
+  { id: 'kicd-up-science', title: 'Grade 4-6: Science & Technology Design', content: 'Key Strands: Living things, the environment, matter, energy, and digital literacy application.', type: 'KICD', size: '4.2 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'kicd-up-agri', title: 'Grade 4-6: Agriculture & Nutrition Design', content: 'Integrated subject covering soil, crop production, animal rearing, and basic human nutrition.', type: 'KICD', size: '3.8 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+
+  // JUNIOR SCHOOL
+  { id: 'kicd-js-intsci', title: 'Grade 7-9: Integrated Science Design', content: 'Rationalized: Physics, Chemistry, and Biology combined with emphasis on inquiry-based learning.', type: 'KICD', size: '5.1 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'kicd-js-pretech', title: 'Grade 7-9: Pre-Technical Studies Design', content: 'Foundations of Engineering, Woodwork, Metalwork, and Electronics. Focus on career pathways.', type: 'KICD', size: '6.2 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'kicd-js-creative', title: 'Grade 7-9: Creative Arts & Sports Design', content: 'Integrated approach to Art, Music, Theatre, and Physical Education for holistic development.', type: 'KICD', size: '4.9 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+
+  // SENIOR SCHOOL
+  { id: 'kicd-ss-stem', title: 'Grade 10-12: STEM Pathway Framework', content: 'Specialized focus on Pure Sciences, Applied Sciences, Mathematics, and Technical Studies.', type: 'KICD', size: '7.5 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'kicd-ss-arts', title: 'Grade 10-12: Arts & Sports Science Pathway', content: 'Focus on Performing Arts, Visual Arts, and Sports Science careers and industry integration.', type: 'KICD', size: '6.8 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'kicd-ss-social', title: 'Grade 10-12: Social Sciences Pathway', content: 'Humanities, Languages, and Business Studies. Focus on global citizenship and leadership.', type: 'KICD', size: '6.5 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true },
+
+  // GENERAL FRAMEWORK
+  { id: 'kicd-core-comp', title: 'Kenya National Curriculum Framework (2024)', content: 'The overarching document for CBE implementation. Outlines 7 core competencies and values.', type: 'KICD', size: '15.2 MB', date: '2024', category: 'Framework', isActiveContext: true, isSystemDoc: true }
 ];
 
 const LOCAL_STORAGE_KEY = 'eduplan_backup_data';
@@ -58,17 +46,13 @@ const App: React.FC = () => {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'online' | 'syncing' | 'offline'>('online');
   
-  // LOCK 1: Hydration Guard (Is the cloud data loaded?)
   const [isHydrated, setIsHydrated] = useState(false);
-  // LOCK 2: Dirty Flag (Have we made changes THIS session?)
   const [isDirty, setIsDirty] = useState(false);
 
-  // States
   const [currentSow, setCurrentSow] = useState<SOWRow[]>([]);
   const [currentSowMeta, setCurrentSowMeta] = useState({ subject: '', grade: '', term: 1, termStart: new Date().toISOString().split('T')[0] });
   const [plannerPrefill, setPlannerPrefill] = useState<any>(null);
   
-  // Archives with Initial LocalStorage Hydration (Safety Net)
   const getInitialState = (key: string, fallback: any) => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (!saved) return fallback;
@@ -87,9 +71,8 @@ const App: React.FC = () => {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>(() => [...SYSTEM_CURRICULUM_DOCS, ...getInitialState('documents', [])]);
   const [slots, setSlots] = useState<LessonSlot[]>(() => getInitialState('slots', []));
 
-  // LocalStorage Mirroring (Instant Buffer)
   useEffect(() => {
-    if (!isHydrated) return; // Don't backup if we haven't even finished loading the cloud data
+    if (!isHydrated) return;
     const backup = {
       sowHistory, planHistory, noteHistory, profile, slots,
       documents: documents.filter(d => !d.isSystemDoc)
@@ -97,7 +80,6 @@ const App: React.FC = () => {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(backup));
   }, [sowHistory, planHistory, noteHistory, profile, slots, documents, isHydrated]);
 
-  // Auth Listener
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -114,7 +96,6 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Hydration logic (Fetch from Supabase)
   useEffect(() => {
     if (session?.user && supabase) {
       loadFromCloud(session.user.id);
@@ -140,7 +121,6 @@ const App: React.FC = () => {
         });
       }
       if (d) {
-        // Prioritize cloud data, but only if it exists
         if (d.slots) setSlots(d.slots);
         if (d.sow_history) setSowHistory(d.sow_history);
         if (d.plan_history) setPlanHistory(d.plan_history);
@@ -148,25 +128,20 @@ const App: React.FC = () => {
         if (d.docs) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...d.docs]);
       }
       
-      setIsHydrated(true); // RELEASE THE LOCK
+      setIsHydrated(true);
       setSyncStatus('online');
     } catch (err) {
       console.error("Cloud hydration failed:", err);
-      setIsHydrated(true); // Proceed with local data if cloud fails
+      setIsHydrated(true);
       setSyncStatus('offline');
     }
   };
 
   const syncToCloud = useCallback(async () => {
-    // LOCK 3: Non-Empty Enforcement & Guards
     if (!session?.user || !supabase || !isHydrated || !isDirty) return;
     
-    // Safety check: Don't overwrite cloud with empty data if we know we previously had data
     const isStateEmpty = sowHistory.length === 0 && planHistory.length === 0 && slots.length === 0;
-    if (isStateEmpty && isDirty) {
-      console.warn("Sync blocked: Attempting to overwrite with empty state.");
-      return;
-    }
+    if (isStateEmpty && isDirty) return;
 
     setSyncStatus('syncing');
     try {
@@ -200,14 +175,12 @@ const App: React.FC = () => {
     }
   }, [session, profile, slots, sowHistory, planHistory, noteHistory, documents, isHydrated, isDirty]);
 
-  // Auto-Save Loop (4s delay after changes)
   useEffect(() => {
     if (!isHydrated || !isDirty) return;
     const timer = setTimeout(() => syncToCloud(), 4000);
     return () => clearTimeout(timer);
   }, [isDirty, syncToCloud, isHydrated]);
 
-  // State Update Wrappers (Trigger Dirty Flag)
   const wrapUpdate = (fn: Function) => (val: any) => { fn(val); setIsDirty(true); };
 
   const handleLogout = async () => {

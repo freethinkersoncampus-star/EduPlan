@@ -2,8 +2,21 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { SOWRow, LessonPlan } from "../types";
 
-// Always initialize the client with the apiKey from process.env.API_KEY
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to ensure we have a fresh client with the latest environment variable
+// Directly uses process.env.API_KEY as per GenAI SDK guidelines
+const getAIClient = () => {
+  if (!process.env.API_KEY) {
+    throw new Error("Gemini API Key is missing. Please check your environment variables.");
+  }
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+};
+
+// Helper to clean JSON strings from common model formatting errors
+const cleanJsonString = (str: string): string => {
+  // Remove markdown code blocks if present
+  let cleaned = str.replace(/```json/g, "").replace(/```/g, "").trim();
+  return cleaned;
+};
 
 export const generateSOW = async (
   subject: string, 
@@ -13,35 +26,27 @@ export const generateSOW = async (
   knowledgeContext?: string
 ): Promise<SOWRow[]> => {
   try {
-    // Using gemini-3-pro-preview for complex curriculum design tasks
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `
-      ${knowledgeContext ? `KNOWLEDGE SOURCES: \n${knowledgeContext}\n\n` : ''}
-      ACT AS A KICD CURRICULUM SPECIALIST.
+      ${knowledgeContext ? `KICD OFFICIAL REFERENCE MATERIALS: \n${knowledgeContext}\n\n` : ''}
       Generate a CBE-compliant Rationalized Scheme of Work for: ${subject}, Level: ${grade}, Term: ${term}.
-      Generate ${lessonSlotsCount} lessons.
+      Generate exactly ${lessonSlotsCount} lessons.
       
-      MANDATORY FORMATTING FOR CBE GUIDELINES:
-      - learningOutcomes: Must be a lettered list (a, b, c) starting with "By the end of the lesson, the learner should be able to:".
-      - teachingExperiences: Must be detailed learner-centered activities starting with "Learners are guided in pairs, groups or individually to:".
-      - keyInquiryQuestions: Stimulating questions related to the topic.
-      - learningResources: Specific citations (e.g., 'Spotlight Integrated Science Learner's Book Grade 7 pg. 66-67').
-      - assessmentMethods: Multiple methods (e.g., Written Test, Rubrics, Oral Questions).
+      MANDATORY CBE GUIDELINES:
+      - Use the LATEST 2024/2025 Rationalized Curriculum standards.
+      - learningOutcomes: Must start with "By the end of the lesson, the learner should be able to:" followed by a lettered list (a, b, c).
+      - teachingExperiences: Must be learner-centered (e.g., "Learners are guided in pairs/groups to...").
+      - keyInquiryQuestions: Must be relevant and provocative.
+      - learningResources: Cite specific Kenyan textbooks (e.g., Spotlight, Mentor, Moran).
+      - assessmentMethods: Include formative assessment (e.g., Checklists, Portfolios, Self-Assessment).
 
-      RETURN JSON ARRAY:
-      - week: integer
-      - lesson: integer
-      - strand: string (UPPERCASE)
-      - subStrand: string
-      - learningOutcomes: string
-      - teachingExperiences: string
-      - keyInquiryQuestions: string
-      - learningResources: string
-      - assessmentMethods: string
-      - reflection: ""
+      RETURN A VALID JSON ARRAY ONLY.
       `,
       config: {
+        // Move expert persona to systemInstruction for better model steering
+        systemInstruction: "ACT AS A KICD CURRICULUM SPECIALIST. You are an expert in the Kenyan Competency Based Education (CBE) system.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -65,11 +70,13 @@ export const generateSOW = async (
       }
     });
 
-    // Access the .text property directly. Trimming is sufficient when using responseMimeType: application/json
-    const jsonStr = response.text?.trim() || '[]';
+    const text = response.text;
+    if (!text) throw new Error("AI returned an empty response.");
+    
+    const jsonStr = cleanJsonString(text);
     return JSON.parse(jsonStr) as SOWRow[];
   } catch (error) {
-    console.error("Error generating SOW:", error);
+    console.error("Critical error in generateSOW:", error);
     throw error;
   }
 };
@@ -83,32 +90,32 @@ export const generateLessonPlan = async (
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
   try {
-    // Using gemini-3-pro-preview for detailed pedagogical lesson planning
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview', 
       contents: `
       ${knowledgeContext ? `REFERENCE MATERIALS: \n${knowledgeContext}\n\n` : ''}
-      ACT AS A KICD PEDAGOGICAL EXPERT.
       GENERATE A KENYAN CBE (COMPETENCY BASED EDUCATION) LESSON PLAN.
       
-      CONTEXT:
-      - Learning Area: ${subject}
-      - Grade: ${grade}
-      - Topic (Strand): ${strand}
-      - Sub-Topic (Sub-Strand): ${subStrand}
-      - School: ${schoolName}
+      Learning Area: ${subject}
+      Grade: ${grade}
+      Strand: ${strand}
+      Sub-Strand: ${subStrand}
+      School: ${schoolName}
 
-      MANDATORY CBE STRUCTURE FOR THE RETURNED JSON:
+      STRUCTURE:
       1. Specific Learning Outcomes: Actionable and learner-centered.
-      2. Key Inquiry Questions: Stimulate critical thinking.
-      3. Learning Resources: Suggested materials/textbooks.
+      2. Key Inquiry Questions: Critical thinking focus.
+      3. Learning Resources: Materials/textbooks.
       4. Organization of Learning:
-         - Introduction (5 mins): Engagement activity.
-         - Lesson Development (30 mins): 4 distinct steps with learner-centered activities.
-         - Conclusion (5 mins): Summary and reflection.
-      5. Extended Activities: Community service or home projects.
+         - Introduction (5 mins)
+         - Lesson Development (30 mins): 4 distinct steps.
+         - Conclusion (5 mins)
+      5. Extended Activities: Community Service Learning (CSL) or home projects.
       `,
       config: {
+        // Use systemInstruction for defining the specialized persona
+        systemInstruction: "ACT AS A KICD PEDAGOGICAL EXPERT. You specialize in creating highly engaging, CBE-aligned lesson plans for Kenyan primary and junior schools.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -155,13 +162,12 @@ export const generateLessonPlan = async (
       }
     });
 
-    // Access the .text property directly as a string
-    const jsonStr = response.text?.trim();
-    if (!jsonStr || jsonStr === '{}') throw new Error("AI returned empty content");
+    const text = response.text;
+    if (!text) throw new Error("AI returned empty content");
     
-    return JSON.parse(jsonStr) as LessonPlan;
+    return JSON.parse(cleanJsonString(text)) as LessonPlan;
   } catch (error) {
-    console.error("Error generating lesson plan:", error);
+    console.error("Critical error in generateLessonPlan:", error);
     throw error;
   }
 };
@@ -174,19 +180,23 @@ export const generateLessonNotes = async (
   knowledgeContext?: string
 ): Promise<string> => {
   try {
-    // Pro model handles complex markdown content generation more effectively
+    const ai = getAIClient();
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `
-      ${knowledgeContext ? `BASE CONTENT: \n${knowledgeContext}\n\n` : ''}
-      WRITE COMPREHENSIVE STUDY NOTES.
-      Subject: ${subject} Grade ${grade}. Topic: ${topic}. Markdown format.`,
+      ${knowledgeContext ? `OFFICIAL KICD BASE CONTENT: \n${knowledgeContext}\n\n` : ''}
+      Subject: ${subject} Grade ${grade}. Topic: ${topic}.
+      Use Markdown with headers, bold text for keywords, and tables where applicable.`,
+      config: {
+        // Provide the expert persona and task instructions via systemInstruction
+        systemInstruction: "WRITE COMPREHENSIVE STUDY NOTES for a Kenyan learner. You are a world-class educator known for making complex concepts simple and clear while maintaining academic rigor.",
+      }
     });
 
-    // Directly access the .text property
+    // Access text property directly as per latest SDK guidelines
     return response.text || "Notes generation failed.";
   } catch (error) {
-    console.error("Error generating notes:", error);
+    console.error("Critical error in generateLessonNotes:", error);
     throw error;
   }
 };
