@@ -1,14 +1,15 @@
+
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { cwd } from 'node:process';
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, (process as any).cwd(), '');
+  // Use the imported cwd function instead of process.cwd() to resolve the path
+  const env = loadEnv(mode, cwd(), '');
   
-  // Try to find the keys in any format (standard or Vite-prefixed)
-  // This ensures Vercel deployments correctly pick up keys from the dashboard
-  const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL || process.env.SUPABASE_URL || '';
-  const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
-  const apiKey = env.VITE_API_KEY || env.API_KEY || process.env.API_KEY || '';
+  const supabaseUrl = env.VITE_SUPABASE_URL || env.SUPABASE_URL || '';
+  const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || '';
+  const apiKey = env.VITE_API_KEY || env.API_KEY || '';
 
   return {
     plugins: [react()],
@@ -19,6 +20,10 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 3000
+    },
+    build: {
+      outDir: 'dist',
+      sourcemap: false
     }
   };
 });

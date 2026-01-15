@@ -1,28 +1,9 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { SOWRow, LessonPlan } from "../types";
 
+// Always initialize the client with the apiKey from process.env.API_KEY
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-const cleanJSONResponse = (text: string) => {
-  if (!text) return '[]';
-  let cleaned = text.trim();
-  // Remove markdown code blocks if present
-  if (cleaned.includes('```')) {
-    cleaned = cleaned.split(/```(?:json)?/)[1] || cleaned;
-    cleaned = cleaned.split('```')[0].trim();
-  }
-  // Remove any leading/trailing garbage
-  const startIdx = cleaned.indexOf('[');
-  const startObjIdx = cleaned.indexOf('{');
-  
-  if (startIdx !== -1 && (startObjIdx === -1 || startIdx < startObjIdx)) {
-    return cleaned.substring(startIdx, cleaned.lastIndexOf(']') + 1);
-  } else if (startObjIdx !== -1) {
-    return cleaned.substring(startObjIdx, cleaned.lastIndexOf('}') + 1);
-  }
-  
-  return cleaned;
-};
 
 export const generateSOW = async (
   subject: string, 
@@ -32,8 +13,9 @@ export const generateSOW = async (
   knowledgeContext?: string
 ): Promise<SOWRow[]> => {
   try {
+    // Using gemini-3-pro-preview for complex curriculum design tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: `
       ${knowledgeContext ? `KNOWLEDGE SOURCES: \n${knowledgeContext}\n\n` : ''}
       ACT AS A KICD CURRICULUM SPECIALIST.
@@ -83,7 +65,8 @@ export const generateSOW = async (
       }
     });
 
-    const jsonStr = cleanJSONResponse(response.text);
+    // Access the .text property directly. Trimming is sufficient when using responseMimeType: application/json
+    const jsonStr = response.text?.trim() || '[]';
     return JSON.parse(jsonStr) as SOWRow[];
   } catch (error) {
     console.error("Error generating SOW:", error);
@@ -100,8 +83,9 @@ export const generateLessonPlan = async (
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
   try {
+    // Using gemini-3-pro-preview for detailed pedagogical lesson planning
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', 
+      model: 'gemini-3-pro-preview', 
       contents: `
       ${knowledgeContext ? `REFERENCE MATERIALS: \n${knowledgeContext}\n\n` : ''}
       ACT AS A KICD PEDAGOGICAL EXPERT.
@@ -171,7 +155,8 @@ export const generateLessonPlan = async (
       }
     });
 
-    const jsonStr = cleanJSONResponse(response.text);
+    // Access the .text property directly as a string
+    const jsonStr = response.text?.trim();
     if (!jsonStr || jsonStr === '{}') throw new Error("AI returned empty content");
     
     return JSON.parse(jsonStr) as LessonPlan;
@@ -189,14 +174,16 @@ export const generateLessonNotes = async (
   knowledgeContext?: string
 ): Promise<string> => {
   try {
+    // Pro model handles complex markdown content generation more effectively
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: `
       ${knowledgeContext ? `BASE CONTENT: \n${knowledgeContext}\n\n` : ''}
       WRITE COMPREHENSIVE STUDY NOTES.
       Subject: ${subject} Grade ${grade}. Topic: ${topic}. Markdown format.`,
     });
 
+    // Directly access the .text property
     return response.text || "Notes generation failed.";
   } catch (error) {
     console.error("Error generating notes:", error);

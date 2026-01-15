@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { KnowledgeDocument } from '../types';
 
@@ -6,7 +5,7 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 const DocumentLibrary: React.FC<{
   documents: KnowledgeDocument[];
-  setDocuments: React.Dispatch<React.SetStateAction<KnowledgeDocument[]>>;
+  setDocuments: (docs: KnowledgeDocument[]) => void;
 }> = ({ documents, setDocuments }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<'official' | 'personal'>('official');
@@ -14,8 +13,11 @@ const DocumentLibrary: React.FC<{
 
   const extractPdfText = async (arrayBuffer: ArrayBuffer): Promise<string> => {
     try {
-      const PDFJS = await import('https://esm.sh/pdfjs-dist@4.10.38/build/pdf.mjs');
-      PDFJS.GlobalWorkerOptions.workerSrc = 'https://esm.sh/pdfjs-dist@4.10.38/build/pdf.worker.mjs';
+      // Use the local package instead of a URL import
+      const PDFJS = await import('pdfjs-dist');
+      // Set worker from a CDN as it's often too large for some build setups, but resolution is now local
+      PDFJS.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS.version}/pdf.worker.min.js`;
+      
       const loadingTask = PDFJS.getDocument({ data: arrayBuffer });
       const pdf = await loadingTask.promise;
       let fullText = '';
@@ -25,15 +27,21 @@ const DocumentLibrary: React.FC<{
         fullText += textContent.items.map((item: any) => item.str).join(' ') + '\n';
       }
       return fullText;
-    } catch (err) { return "Failed to extract PDF."; }
+    } catch (err) { 
+      console.error("PDF extraction failed:", err);
+      return "Failed to extract PDF."; 
+    }
   };
 
   const extractDocxText = async (arrayBuffer: ArrayBuffer): Promise<string> => {
     try {
-      const mammoth = await import('https://esm.sh/mammoth@1.8.0');
+      const mammoth = await import('mammoth');
       const result = await mammoth.extractRawText({ arrayBuffer });
       return result.value;
-    } catch (err) { return "Failed to extract DOCX."; }
+    } catch (err) { 
+      console.error("DOCX extraction failed:", err);
+      return "Failed to extract DOCX."; 
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,7 +49,7 @@ const DocumentLibrary: React.FC<{
     if (!file) return;
 
     if (file.size > MAX_FILE_SIZE) {
-      alert(`FILE TOO LARGE: This document is ${(file.size / 1024 / 1024).toFixed(1)}MB. The limit is 50MB to ensure smooth cloud syncing.`);
+      alert(`FILE TOO LARGE: This document is ${(file.size / 1024 / 1024).toFixed(1)}MB. The limit is 50MB.`);
       return;
     }
 
@@ -58,7 +66,7 @@ const DocumentLibrary: React.FC<{
       const newDoc: KnowledgeDocument = {
         id: Date.now().toString(),
         title: file.name,
-        content: content.substring(0, 50000), // Increased cap slightly
+        content: content.substring(0, 50000),
         type: extension?.toUpperCase() || 'FILE',
         size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`,
         date: new Date().toLocaleDateString(),
@@ -67,7 +75,7 @@ const DocumentLibrary: React.FC<{
         isSystemDoc: false
       };
 
-      setDocuments(docs => [newDoc, ...docs]);
+      setDocuments([newDoc, ...documents]);
       setActiveTab('personal');
     } catch (err) {
       alert("Error processing file.");
@@ -78,12 +86,12 @@ const DocumentLibrary: React.FC<{
   };
 
   const toggleContext = (id: string) => {
-    setDocuments(docs => docs.map(d => d.id === id ? { ...d, isActiveContext: !d.isActiveContext } : d));
+    setDocuments(documents.map(d => d.id === id ? { ...d, isActiveContext: !d.isActiveContext } : d));
   };
 
   const deleteDoc = (id: string) => {
     if (confirm("Permanently delete this resource?")) {
-      setDocuments(docs => docs.filter(d => d.id !== id));
+      setDocuments(documents.filter(d => d.id !== id));
     }
   };
 
