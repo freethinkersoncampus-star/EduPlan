@@ -151,6 +151,12 @@ const Timetable: React.FC<TimetableProps> = ({ slots, setSlots, profile, setProf
     setNewSubj(''); setNewGrd('');
   };
 
+  const removeSubjectFromRegistry = (id: string) => {
+    if (confirm("Remove this subject from your active teaching workload?")) {
+      setProfile({...profile, subjects: profile.subjects.filter(s => s.id !== id)});
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -189,7 +195,7 @@ const Timetable: React.FC<TimetableProps> = ({ slots, setSlots, profile, setProf
                     <p className="font-black text-slate-800 text-sm uppercase">{p.subject}</p>
                     <p className="text-[9px] font-bold text-indigo-500 uppercase tracking-widest">{p.grade}</p>
                   </div>
-                  <button onClick={() => setProfile({...profile, subjects: profile.subjects.filter(s => s.id !== p.id)})} className="text-slate-200 hover:text-red-500 transition p-2"><i className="fas fa-trash-alt"></i></button>
+                  <button onClick={() => removeSubjectFromRegistry(p.id)} className="text-slate-200 hover:text-red-500 transition p-2"><i className="fas fa-trash-alt"></i></button>
                 </div>
               ))}
               {profile.subjects.length === 0 && <p className="p-10 text-center text-slate-400 font-medium italic text-xs uppercase tracking-widest">Registry is empty.</p>}

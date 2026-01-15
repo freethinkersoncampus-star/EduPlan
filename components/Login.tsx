@@ -6,7 +6,8 @@ import {
   getMissingConfigInfo, 
   saveManualConfig, 
   isUsingManualConfig,
-  clearManualConfig
+  clearManualConfig,
+  supabaseUrl
 } from '../services/supabase';
 
 const Login: React.FC = () => {
@@ -34,9 +35,8 @@ const Login: React.FC = () => {
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (smartPaste) {
-      // Try to extract URL and Key from a combined paste
       const urlMatch = smartPaste.match(/https:\/\/[a-z0-9-]+\.supabase\.co/i);
-      const keyMatch = smartPaste.match(/[a-zA-Z0-9\-_]{50,}/); // Look for long string
+      const keyMatch = smartPaste.match(/[a-zA-Z0-9\-_]{50,}/); 
       if (urlMatch && keyMatch) {
         saveManualConfig(urlMatch[0], keyMatch[0]);
         return;
@@ -56,13 +56,21 @@ const Login: React.FC = () => {
     try {
       if (isSignUp) {
         await signUpWithEmail(email, password);
-        alert("Account created! You can now sign in.");
+        alert("Success! Account registered on this database. You can now sign in.");
         setIsSignUp(false);
       } else {
         await signInWithEmail(email, password);
       }
     } catch (err: any) {
-      setError(err.message || "Authentication failed. Check your email/password.");
+      const errMsg = err.message || "";
+      console.error("Auth Error:", err);
+      
+      // DIAGNOSTIC: If manual override is active and login fails, it's likely a missing user in the new DB
+      if (isUsingManualConfig && !isSignUp && (errMsg.includes('Invalid login') || errMsg.includes('credentials'))) {
+        setError("PREVIEW SYNC ISSUE: You are using a custom database link. Your main account doesn't exist here yet. Please click 'CREATE AN ACCOUNT' below to register on this specific project first!");
+      } else {
+        setError(errMsg || "Authentication failed. Please check your details.");
+      }
     } finally {
       setLoading(false);
     }
@@ -82,11 +90,14 @@ const Login: React.FC = () => {
         </div>
 
         {isUsingManualConfig && (
-          <div className="mb-6 bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex justify-between items-center">
-             <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest flex items-center gap-2">
-               <i className="fas fa-check-circle"></i> {isPreview ? 'Preview Config Active' : 'Manual Override Active'}
-             </p>
-             <button onClick={clearManualConfig} className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline">Reset</button>
+          <div className="mb-6 bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
+             <div className="flex justify-between items-center mb-2">
+                <p className="text-[9px] font-black text-emerald-700 uppercase tracking-widest flex items-center gap-2">
+                  <i className="fas fa-check-circle"></i> {isPreview ? 'Studio Preview Active' : 'Manual Override Active'}
+                </p>
+                <button onClick={clearManualConfig} className="text-[9px] font-black text-red-500 uppercase tracking-widest hover:underline">Reset</button>
+             </div>
+             <p className="text-[8px] font-bold text-emerald-600/60 truncate uppercase tracking-tighter">Connected to: {supabaseUrl?.split('//')[1]}</p>
           </div>
         )}
 
@@ -144,8 +155,8 @@ const Login: React.FC = () => {
                   </h3>
                   <p className="text-[10px] leading-relaxed font-bold text-slate-700">
                     {isPreview 
-                      ? "This is the AI Studio Preview. It doesn't share your Vercel keys. Please use the button below to paste your Supabase keys once."
-                      : "Your production keys are missing. Please fix your Vercel Environment variables or use the rescue button below."}
+                      ? "This is the AI Studio Preview. To test features here, click the button below and paste your Supabase URL and Key."
+                      : "Your production keys are missing. Please check your Vercel Dashboard or use the rescue button below."}
                   </p>
                 </div>
 
@@ -163,7 +174,7 @@ const Login: React.FC = () => {
                     onClick={() => setShowManual(true)}
                     className="w-full mt-6 bg-indigo-600 text-white py-5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:scale-[1.02] transition-all"
                   >
-                    {isPreview ? 'Quick Setup Preview' : 'Fix with Manual Override'}
+                    {isPreview ? 'Setup Preview Connection' : 'Fix with Manual Override'}
                   </button>
                 </div>
               </div>
@@ -172,7 +183,8 @@ const Login: React.FC = () => {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5 animate-in fade-in duration-700">
             {error && (
-              <div className="bg-red-50 p-4 rounded-2xl border border-red-100 text-[10px] font-bold text-red-600 uppercase tracking-widest text-center">
+              <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 text-[10px] font-bold text-indigo-800 uppercase tracking-widest text-center leading-relaxed shadow-sm">
+                <i className="fas fa-info-circle mb-2 block text-sm text-indigo-600"></i>
                 {error}
               </div>
             )}
@@ -214,16 +226,16 @@ const Login: React.FC = () => {
               className="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all duration-300 flex items-center justify-center gap-3 text-[10px] uppercase tracking-[0.2em] disabled:opacity-50 mt-4"
             >
               {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className={`fas fa-${isSignUp ? 'user-plus' : 'sign-in-alt'}`}></i>}
-              {loading ? 'Logging in...' : isSignUp ? 'Create Teacher Account' : 'Sign In To EduPlan'}
+              {loading ? 'Processing...' : isSignUp ? 'Create New Teacher Profile' : 'Sign In To EduPlan'}
             </button>
 
             <div className="text-center mt-6">
               <button 
                 type="button"
-                onClick={() => setIsSignUp(!isSignUp)}
+                onClick={() => { setIsSignUp(!isSignUp); setError(null); }}
                 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest hover:text-indigo-700 transition"
               >
-                {isSignUp ? 'Already have an account? Log In' : "New teacher? Create an Account"}
+                {isSignUp ? 'Already have an account? Log In' : "New on this Database? Create an Account"}
               </button>
             </div>
           </form>

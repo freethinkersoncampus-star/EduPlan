@@ -1,8 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { generateLessonPlan, generateLessonNotes } from '../services/geminiService';
+import { exportLessonPlanToDocx, exportNotesToDocx } from '../services/exportService';
 import { LessonPlan, SavedLessonPlan, SavedLessonNote, UserProfile } from '../types';
 
 interface LessonPlannerProps {
@@ -10,18 +10,28 @@ interface LessonPlannerProps {
   prefill?: any;
   onClearPrefill: () => void;
   userProfile: UserProfile;
+  savedPlans: SavedLessonPlan[];
+  setSavedPlans: (plans: SavedLessonPlan[]) => void;
+  savedNotes: SavedLessonNote[];
+  setSavedNotes: (notes: SavedLessonNote[]) => void;
 }
 
-const LessonPlanner: React.FC<LessonPlannerProps> = ({ knowledgeContext, prefill, onClearPrefill, userProfile }) => {
+const LessonPlanner: React.FC<LessonPlannerProps> = ({ 
+  knowledgeContext, 
+  prefill, 
+  onClearPrefill, 
+  userProfile,
+  savedPlans,
+  setSavedPlans,
+  savedNotes,
+  setSavedNotes
+}) => {
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [loadingNotes, setLoadingNotes] = useState(false);
   const [plan, setPlan] = useState<LessonPlan | null>(null);
   const [notes, setNotes] = useState<string>('');
   const [view, setView] = useState<'editor' | 'library'>('editor');
   const [libraryTab, setLibraryTab] = useState<'plans' | 'notes'>('plans');
-
-  const [savedPlans, setSavedPlans] = useState<SavedLessonPlan[]>(() => JSON.parse(localStorage.getItem('eduplan_plan_history') || '[]'));
-  const [savedNotes, setSavedNotes] = useState<SavedLessonNote[]>(() => JSON.parse(localStorage.getItem('eduplan_note_history') || '[]'));
   
   const [input, setInput] = useState({
     subject: '', grade: '', strand: '', subStrand: ''
@@ -93,10 +103,8 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({ knowledgeContext, prefill
       grade: plan.grade,
       plan: plan
     };
-    const updated = [newEntry, ...savedPlans];
-    setSavedPlans(updated);
-    localStorage.setItem('eduplan_plan_history', JSON.stringify(updated));
-    alert("Lesson plan saved.");
+    setSavedPlans([newEntry, ...savedPlans]);
+    alert("Plan Added to Cloud Archive.");
   };
 
   const saveCurrentNotes = () => {
@@ -109,13 +117,33 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({ knowledgeContext, prefill
       subject: input.subject,
       grade: input.grade
     };
-    const updated = [newEntry, ...savedNotes];
-    setSavedNotes(updated);
-    localStorage.setItem('eduplan_note_history', JSON.stringify(updated));
-    alert("Lesson notes saved.");
+    setSavedNotes([newEntry, ...savedNotes]);
+    alert("Notes Added to Cloud Archive.");
   };
 
   const isFormValid = input.subject !== '' && input.subStrand !== '';
+
+  const handleDownloadPlanDocx = () => {
+    if (plan) exportLessonPlanToDocx(plan, userProfile);
+  };
+
+  const handleDownloadNotesDocx = () => {
+    if (notes) exportNotesToDocx(`${input.subject} - ${input.subStrand}`, notes);
+  };
+
+  const handleDeletePlan = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm("Delete this lesson plan from archive?")) {
+      setSavedPlans(savedPlans.filter(p => p.id !== id));
+    }
+  };
+
+  const handleDeleteNote = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm("Delete these study notes from archive?")) {
+      setSavedNotes(savedNotes.filter(n => n.id !== id));
+    }
+  };
 
   return (
     <div className="p-4 md:p-8 pb-24">
@@ -180,11 +208,14 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({ knowledgeContext, prefill
                      </div>
                    ) : plan ? (
                      <div className="animate-in fade-in duration-700">
-                        <div className="flex justify-between items-center mb-10 pb-4 border-b print:hidden">
+                        <div className="flex flex-wrap justify-between items-center mb-10 pb-4 border-b print:hidden gap-3">
                            <span className="text-[10px] font-black uppercase text-indigo-500 tracking-widest">Rationalized Lesson Plan</span>
                            <div className="flex gap-2">
-                             <button onClick={() => window.print()} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition">
-                                <i className="fas fa-print mr-2"></i> Print
+                             <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition">
+                                <i className="fas fa-print"></i>
+                             </button>
+                             <button onClick={handleDownloadPlanDocx} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">
+                                <i className="fas fa-file-word"></i>
                              </button>
                              <button onClick={saveCurrentPlan} className="bg-indigo-500 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 transition shadow-lg shadow-indigo-100">
                                 <i className="fas fa-save mr-2"></i> Save
@@ -314,11 +345,14 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({ knowledgeContext, prefill
                      </div>
                    ) : notes ? (
                      <div className="animate-in fade-in duration-700">
-                        <div className="flex justify-between items-center mb-10 pb-4 border-b print:hidden">
+                        <div className="flex flex-wrap justify-between items-center mb-10 pb-4 border-b print:hidden gap-3">
                            <span className="text-[10px] font-black uppercase text-emerald-500 tracking-widest">Comprehensive Study Notes</span>
                            <div className="flex gap-2">
-                             <button onClick={() => window.print()} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition">
-                                <i className="fas fa-print mr-2"></i> Print
+                             <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition">
+                                <i className="fas fa-print"></i>
+                             </button>
+                             <button onClick={handleDownloadNotesDocx} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition shadow-lg shadow-emerald-100">
+                                <i className="fas fa-file-word"></i>
                              </button>
                              <button onClick={saveCurrentNotes} className="bg-emerald-500 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition shadow-lg shadow-emerald-100">
                                 <i className="fas fa-save mr-2"></i> Save
@@ -350,17 +384,22 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({ knowledgeContext, prefill
         <div className="space-y-8 animate-in fade-in duration-500 print:hidden">
            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
               <div className="flex bg-slate-100 p-1 rounded-2xl w-fit mb-10 shadow-inner">
-                 <button onClick={() => setLibraryTab('plans')} className={`px-10 py-3 rounded-xl font-black text-[10px] tracking-widest transition-all uppercase ${libraryTab === 'plans' ? 'bg-white text-indigo-900 shadow-md' : 'text-slate-500'}`}>Plans Archive</button>
-                 <button onClick={() => setLibraryTab('notes')} className={`px-10 py-3 rounded-xl font-black text-[10px] tracking-widest transition-all uppercase ${libraryTab === 'notes' ? 'bg-white text-indigo-900 shadow-md' : 'text-slate-500'}`}>Notes Archive</button>
+                 <button onClick={() => setLibraryTab('plans')} className={`px-10 py-3 rounded-xl font-black text-[10px] tracking-widest transition-all uppercase ${libraryTab === 'plans' ? 'bg-white text-indigo-900 shadow-md' : 'text-slate-500'}`}>Plans Archive ({savedPlans.length})</button>
+                 <button onClick={() => setLibraryTab('notes')} className={`px-10 py-3 rounded-xl font-black text-[10px] tracking-widest transition-all uppercase ${libraryTab === 'notes' ? 'bg-white text-indigo-900 shadow-md' : 'text-slate-500'}`}>Notes Archive ({savedNotes.length})</button>
               </div>
 
               {libraryTab === 'plans' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                    {savedPlans.map(item => (
-                     <div key={item.id} className="p-8 border-2 border-slate-50 rounded-[2rem] hover:border-indigo-200 transition bg-slate-50/50 cursor-pointer group" onClick={() => { setPlan(item.plan); setView('editor'); }}>
+                     <div key={item.id} className="group relative p-8 border-2 border-slate-50 rounded-[2rem] hover:border-indigo-200 transition bg-slate-50/50 cursor-pointer" onClick={() => { setPlan(item.plan); setView('editor'); }}>
                         <div className="flex justify-between mb-6">
                            <span className="text-[9px] font-black text-indigo-500 uppercase bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">CBE PLAN</span>
-                           <span className="text-[9px] text-slate-400 font-bold">{item.dateCreated}</span>
+                           <div className="flex items-center gap-2">
+                             <span className="text-[9px] text-slate-400 font-bold">{item.dateCreated}</span>
+                             <button onClick={(e) => handleDeletePlan(item.id, e)} className="text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1">
+                                <i className="fas fa-trash-alt text-xs"></i>
+                             </button>
+                           </div>
                         </div>
                         <h4 className="font-black text-slate-800 uppercase text-sm mb-1 truncate">{item.title}</h4>
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{item.grade}</p>
@@ -371,10 +410,15 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({ knowledgeContext, prefill
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                    {savedNotes.map(item => (
-                     <div key={item.id} className="p-8 border-2 border-slate-50 rounded-[2rem] hover:border-emerald-200 transition bg-slate-50/50 cursor-pointer group" onClick={() => { setNotes(item.content); setInput({...input, subject: item.subject, grade: item.grade}); setView('editor'); }}>
+                     <div key={item.id} className="group relative p-8 border-2 border-slate-50 rounded-[2rem] hover:border-emerald-200 transition bg-slate-50/50 cursor-pointer" onClick={() => { setNotes(item.content); setInput({...input, subject: item.subject, grade: item.grade}); setView('editor'); }}>
                         <div className="flex justify-between mb-6">
                            <span className="text-[9px] font-black text-emerald-500 uppercase bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">NOTES</span>
-                           <span className="text-[9px] text-slate-400 font-bold">{item.dateCreated}</span>
+                           <div className="flex items-center gap-2">
+                             <span className="text-[9px] text-slate-400 font-bold">{item.dateCreated}</span>
+                             <button onClick={(e) => handleDeleteNote(item.id, e)} className="text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1">
+                                <i className="fas fa-trash-alt text-xs"></i>
+                             </button>
+                           </div>
                         </div>
                         <h4 className="font-black text-slate-800 uppercase text-sm mb-1 truncate">{item.title}</h4>
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{item.grade}</p>

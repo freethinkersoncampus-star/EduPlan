@@ -1,6 +1,6 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { generateSOW } from '../services/geminiService';
+import { exportSOWToDocx } from '../services/exportService';
 import { SOWRow, LessonSlot, SavedSOW, UserProfile } from '../types';
 
 interface SOWGeneratorProps {
@@ -12,6 +12,8 @@ interface SOWGeneratorProps {
   setPersistedMeta: (meta: any) => void;
   onPrefillPlanner: (data: any) => void;
   userProfile: UserProfile;
+  history: SavedSOW[];
+  setHistory: (history: SavedSOW[]) => void;
 }
 
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -24,10 +26,11 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
   persistedMeta, 
   setPersistedMeta,
   onPrefillPlanner,
-  userProfile
+  userProfile,
+  history,
+  setHistory
 }) => {
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<SavedSOW[]>([]);
   const [showLibrary, setShowLibrary] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   
@@ -41,11 +44,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     halfTermStart: persistedMeta?.halfTermStart || '',
     halfTermEnd: persistedMeta?.halfTermEnd || ''
   });
-
-  useEffect(() => {
-    const saved = localStorage.getItem('eduplan_sow_history');
-    if (saved) setHistory(JSON.parse(saved));
-  }, []);
 
   const lessonsPerWeek = useMemo(() => {
     if (!formData.subject || !formData.grade) return 0;
@@ -161,6 +159,18 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     setTimeout(() => { window.print(); }, 100);
   };
 
+  const handleDownloadDocx = () => {
+    exportSOWToDocx(persistedSow, formData, userProfile);
+  };
+
+  const handleDeleteHistory = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm("Permanently delete this saved Scheme of Work?")) {
+      const newHistory = history.filter(item => item.id !== id);
+      setHistory(newHistory);
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 pb-32 overflow-x-hidden">
       <div className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm border border-slate-200 mb-8 print:hidden">
@@ -170,7 +180,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
             <p className="text-[9px] text-slate-400 font-bold tracking-[0.2em] mt-1.5 uppercase">KICD Rationalized Engine</p>
           </div>
           <button onClick={() => setShowLibrary(!showLibrary)} className="w-full sm:w-auto text-[10px] font-black text-indigo-600 bg-indigo-50 px-6 py-3 rounded-xl uppercase tracking-widest hover:bg-indigo-100 transition">
-            {showLibrary ? "← CONFIG" : "SOW ARCHIVE"}
+            {showLibrary ? "← CONFIG" : `SOW ARCHIVE (${history.length})`}
           </button>
         </div>
 
@@ -237,8 +247,13 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
         {showLibrary && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300 max-h-[400px] overflow-y-auto custom-scrollbar p-2">
             {history.map(item => (
-              <div key={item.id} className="p-6 border-2 border-slate-50 rounded-2xl bg-slate-50/50 hover:border-indigo-300 hover:bg-white transition cursor-pointer" onClick={() => { setPersistedSow(item.data); setFormData(item as any); setShowLibrary(false); }}>
-                <p className="text-[9px] font-black text-slate-400 uppercase mb-1">{item.year} • TERM {item.term}</p>
+              <div key={item.id} className="group relative p-6 border-2 border-slate-50 rounded-2xl bg-slate-50/50 hover:border-indigo-300 hover:bg-white transition cursor-pointer" onClick={() => { setPersistedSow(item.data); setFormData(item as any); setShowLibrary(false); }}>
+                <div className="flex justify-between items-start mb-1">
+                  <p className="text-[9px] font-black text-slate-400 uppercase">{item.year} • TERM {item.term}</p>
+                  <button onClick={(e) => handleDeleteHistory(item.id, e)} className="text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1">
+                    <i className="fas fa-trash-alt text-[10px]"></i>
+                  </button>
+                </div>
                 <h4 className="font-black text-slate-800 uppercase text-xs">{item.subject} ({item.grade})</h4>
               </div>
             ))}
@@ -263,12 +278,14 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
               <button onClick={handlePrint} className="flex-1 md:flex-none bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">
                 <i className="fas fa-print"></i> PRINT
               </button>
+              <button onClick={handleDownloadDocx} className="flex-1 md:flex-none bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">
+                <i className="fas fa-file-word"></i> DOCX
+              </button>
               <button onClick={() => {
                 const entry = { id: Date.now().toString(), dateCreated: new Date().toLocaleDateString(), ...formData, data: persistedSow };
                 const newHistory = [entry, ...history];
                 setHistory(newHistory);
-                localStorage.setItem('eduplan_sow_history', JSON.stringify(newHistory));
-                alert("Archived.");
+                alert("Cloud Archive Updated.");
               }} className="flex-1 md:flex-none bg-emerald-600 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest">
                 <i className="fas fa-save"></i> SAVE
               </button>
@@ -276,7 +293,8 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
           </div>
 
           <div className="bg-white p-6 md:p-12 border-2 border-slate-100 shadow-2xl mb-32 print:p-0 print:border-none sow-card rounded-[2rem]">
-            <div className="text-center mb-8 md:mb-12">
+             {/* Table code remains the same as previously fixed */}
+             <div className="text-center mb-8 md:mb-12">
               <h1 className="text-lg md:text-2xl font-black uppercase underline decoration-2 underline-offset-8 mb-6 md:mb-10 leading-relaxed px-4">
                 {formData.year} {formData.subject} {formData.grade} SCHEMES OF WORK TERM {getTermString(formData.term)}
               </h1>

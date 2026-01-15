@@ -1,4 +1,3 @@
-
 {
   "short_name": "EduPlan",
   "name": "EduPlan CBC Master Pro",
@@ -19,7 +18,8 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "theme_color": "#4f46e5",
   "background_color": "#f8fafc"

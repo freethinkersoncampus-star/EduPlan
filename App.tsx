@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Timetable from './components/Timetable';
@@ -8,151 +8,87 @@ import DocumentLibrary from './components/DocumentLibrary';
 import StaffManagement from './components/StaffManagement';
 import Login from './components/Login';
 import { supabase, isSupabaseConfigured, signOut as supabaseSignOut, hasSystemConfig, isUsingManualConfig, clearManualConfig } from './services/supabase';
-import { LessonSlot, UserProfile, KnowledgeDocument, SOWRow } from './types';
+import { LessonSlot, UserProfile, KnowledgeDocument, SOWRow, SavedSOW, SavedLessonPlan, SavedLessonNote } from './types';
 
 const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
+  // --- FRAMEWORKS & STANDARDS ---
   { 
-    id: 'sys-kicd-framework-2025', 
-    title: 'National Rationalized Curriculum Framework', 
-    content: 'CBE 2025 structure: Focuses on core competencies: Communication and Collaboration, Self-efficacy, Critical Thinking and Problem Solving, Creativity and Imagination, Citizenship, Digital Literacy, Learning to Learn.', 
-    type: 'KICD', 
-    size: '12.4 MB', 
-    date: 'Jan 2025', 
-    category: 'Framework', 
-    isActiveContext: true, 
-    isSystemDoc: true 
+    id: 'sys-framework-2025', 
+    title: 'National Rationalized Curriculum Framework (Revised 2025)', 
+    content: 'Comprehensive framework for all levels (PP1 to Grade 12). Core Competencies: Communication, Self-efficacy, Critical Thinking, Creativity, Citizenship, Digital Literacy, Learning to Learn. Emphasis on Pertinent and Contemporary Issues (PCIs).', 
+    type: 'KICD', size: '15.2 MB', date: 'Jan 2025', category: 'Framework', isActiveContext: true, isSystemDoc: true 
   },
   { 
-    id: 'sys-kicd-science-g7', 
-    title: 'Integrated Science Grade 7 Rationalized Design', 
-    content: 'Strands: Mixture, Elements and Molecules. Living Things and their Environment. Heat Transfer. Electricity and Magnetism. Human Body Systems.', 
-    type: 'PDF', 
-    size: '4.8 MB', 
-    date: 'Jan 2025', 
-    category: 'Science', 
-    isActiveContext: true, 
-    isSystemDoc: true 
+    id: 'sys-kts-standards', 
+    title: 'Kenya Professional Standards for Teachers', 
+    content: 'Guidelines on teacher professional conduct, pedagogical knowledge, and professional development. Integration of ICT in teaching and learner-centered approaches.', 
+    type: 'TSC', size: '3.1 MB', date: '2024', category: 'Standards', isActiveContext: true, isSystemDoc: true 
+  },
+
+  // --- PRIMARY SCHOOL (Grades 1-6) ---
+  { 
+    id: 'sys-pri-lower-literacy', 
+    title: 'Primary Grade 1-3 Literacy and Languages', 
+    content: 'Lower Primary CBC focus: Developing foundational literacy in English, Kiswahili, and Indigenous Languages. Strands: Listening, Speaking, Reading, and Writing foundational skills.', 
+    type: 'PDF', size: '4.5 MB', date: '2024', category: 'Primary', isActiveContext: true, isSystemDoc: true 
   },
   { 
-    id: 'sys-kicd-math-g7', 
-    title: 'Mathematics Grade 7 Rationalized Design', 
-    content: 'Strands: Numbers (Whole numbers, Fractions, Decimals, Percentages), Algebra (Linear Equations), Geometry (Angles, Triangles), Data Handling (Mean, Median, Mode).', 
-    type: 'PDF', 
-    size: '5.2 MB', 
-    date: 'Jan 2025', 
-    category: 'Mathematics', 
-    isActiveContext: true, 
-    isSystemDoc: true 
+    id: 'sys-pri-lower-math', 
+    title: 'Primary Grade 1-3 Mathematics Activities', 
+    content: 'Numbers (up to 1000), Measurement (Length, Mass, Capacity), Geometry (Lines, Shapes), and Algebra (Simple patterns).', 
+    type: 'PDF', size: '4.2 MB', date: '2024', category: 'Primary', isActiveContext: true, isSystemDoc: true 
   },
   { 
-    id: 'sys-kicd-pretech-g7', 
-    title: 'Pre-Technical Studies Grade 7 Rationalized Design', 
-    content: 'Strands: Foundations of Pre-Technical Studies, Materials (Metals, Wood, Plastics), Tools and Equipment, Safety in the Workshop, Drawing and Design Basics.', 
-    type: 'PDF', 
-    size: '8.1 MB', 
-    date: 'Jan 2025', 
-    category: 'Technical', 
-    isActiveContext: true, 
-    isSystemDoc: true 
+    id: 'sys-pri-upper-science', 
+    title: 'Upper Primary (Grades 4-6) Science & Tech', 
+    content: 'Strands: Living Things (Plants and Animals), Environment (Pollution), Human Body (Circulatory system), Matter (Physical/Chemical changes), Force and Energy.', 
+    type: 'PDF', size: '6.8 MB', date: '2024', category: 'Primary', isActiveContext: true, isSystemDoc: true 
+  },
+
+  // --- JUNIOR SECONDARY (Grades 7-9) ---
+  { 
+    id: 'sys-jss-english', 
+    title: 'Junior Secondary (G7-9) English Rationalized', 
+    content: 'Strands: Listening and Speaking (Public speaking), Reading (Literary and Non-literary texts), Grammar (Complex structures), Writing (Functional and Creative writing).', 
+    type: 'PDF', size: '5.4 MB', date: 'Jan 2025', category: 'Junior Secondary', isActiveContext: true, isSystemDoc: true 
   },
   { 
-    id: 'sys-kicd-creative-g7', 
-    title: 'Creative Arts and Sports Grade 7 Rationalized Design', 
-    content: 'Strands: Performing Arts (Music, Dance, Drama), Visual Arts (Drawing, Painting, Sculpture), Physical Education and Sports (Athletics, Ball Games).', 
-    type: 'PDF', 
-    size: '9.5 MB', 
-    date: 'Jan 2025', 
-    category: 'Arts', 
-    isActiveContext: true, 
-    isSystemDoc: true 
+    id: 'sys-jss-math', 
+    title: 'Junior Secondary (G7-9) Mathematics Rationalized', 
+    content: 'Strands: Numbers (Integers, Powers), Algebra (Linear inequalities), Geometry (Circles, Pythagoras), Data Handling (Statistics and Probability).', 
+    type: 'PDF', size: '6.5 MB', date: 'Jan 2025', category: 'Junior Secondary', isActiveContext: true, isSystemDoc: true 
   },
   { 
-    id: 'sys-kicd-english-g7', 
-    title: 'English Grade 7 Rationalized Design', 
-    content: 'Strands: Listening and Speaking, Reading, Grammar in Context, Writing Skills. Focus on functional writing and comprehension.', 
-    type: 'PDF', 
-    size: '3.9 MB', 
-    date: 'Jan 2025', 
-    category: 'Languages', 
-    isActiveContext: true, 
-    isSystemDoc: true 
+    id: 'sys-jss-integrated-science', 
+    title: 'Junior Secondary (G7-9) Integrated Science', 
+    content: 'Strands: Scientific Investigation, Mixtures, Force and Energy, Living Things, Human Body Systems, Electricity and Magnetism, Space Science.', 
+    type: 'PDF', size: '8.2 MB', date: 'Jan 2025', category: 'Junior Secondary', isActiveContext: true, isSystemDoc: true 
   },
   { 
-    id: 'sys-kicd-ss-g7', 
-    title: 'Social Studies Grade 7 Rationalized Design', 
-    content: 'Strands: Physical Environment, African History and Governance, Resources and Economic Activities, Citizenship and Social Integration.', 
-    type: 'PDF', 
-    size: '7.3 MB', 
-    date: 'Jan 2025', 
-    category: 'Social Sciences', 
-    isActiveContext: true, 
-    isSystemDoc: true 
+    id: 'sys-jss-social-studies', 
+    title: 'Junior Secondary (G7-9) Social Studies', 
+    content: 'Strands: The Environment (Map work, Climate), History (Ancient civilizations, Colonization), Citizenship (Governance, Law), Economic Activities (Trade, Tourism).', 
+    type: 'PDF', size: '5.9 MB', date: 'Jan 2025', category: 'Junior Secondary', isActiveContext: true, isSystemDoc: true 
+  },
+
+  // --- SENIOR SECONDARY (Grades 10-12 Pathways) ---
+  { 
+    id: 'sys-sss-stem-pathway', 
+    title: 'Senior Secondary STEM Pathway Design', 
+    content: 'Focused on Pure Sciences (Biology, Chemistry, Physics), Applied Sciences (Agriculture, Home Science), and Mathematics (Core and Elective). Preparation for technical careers.', 
+    type: 'PDF', size: '10.5 MB', date: '2025', category: 'Senior Secondary', isActiveContext: true, isSystemDoc: true 
   },
   { 
-    id: 'sys-kicd-kiswahili-g7', 
-    title: 'Kiswahili Grade 7 Rationalized Design', 
-    content: 'Mada: Kusikiliza na Kuzungumza, Kusoma, Sarufi, Kuandika. Mkazo katika Kiswahili Sanifu na mawasiliano ya kila siku.', 
-    type: 'PDF', 
-    size: '4.1 MB', 
-    date: 'Jan 2025', 
-    category: 'Languages', 
-    isActiveContext: true, 
-    isSystemDoc: true 
+    id: 'sys-sss-humanities-pathway', 
+    title: 'Senior Secondary Social Sciences Pathway', 
+    content: 'Focused on Languages, Humanities (History, Geography, Religious Studies), and Business Studies. Preparation for careers in law, public service, and commerce.', 
+    type: 'PDF', size: '9.8 MB', date: '2025', category: 'Senior Secondary', isActiveContext: true, isSystemDoc: true 
   },
   { 
-    id: 'sys-kicd-science-g8', 
-    title: 'Integrated Science Grade 8 Rationalized Design', 
-    content: 'Strands: Chemical Substances, Light and Sound, Reproduction in Plants and Animals, Excretory System, Force and Pressure.', 
-    type: 'PDF', 
-    size: '5.0 MB', 
-    date: 'Jan 2025', 
-    category: 'Science', 
-    isActiveContext: true, 
-    isSystemDoc: true 
-  },
-  { 
-    id: 'sys-kicd-math-g8', 
-    title: 'Mathematics Grade 8 Rationalized Design', 
-    content: 'Strands: Squares and Square Roots, Ratio and Proportion, Linear Inequalities, Circles and Polygons, Probability.', 
-    type: 'PDF', 
-    size: '5.5 MB', 
-    date: 'Jan 2025', 
-    category: 'Mathematics', 
-    isActiveContext: true, 
-    isSystemDoc: true 
-  },
-  { 
-    id: 'sys-kicd-ict-g7-9', 
-    title: 'Digital Literacy & Computer Science Grade 7-9', 
-    content: 'Strands: Computer Systems, Internet and World Wide Web, Computational Thinking (Scratch/Python), Spreadsheet and Word Processing, Cyber Security.', 
-    type: 'PDF', 
-    size: '10.2 MB', 
-    date: 'Jan 2025', 
-    category: 'ICT', 
-    isActiveContext: true, 
-    isSystemDoc: true 
-  },
-  { 
-    id: 'sys-kicd-life-skills-g7', 
-    title: 'Life Skills Education Grade 7 Rationalized Design', 
-    content: 'Strands: Self-Awareness, Empathy, Decision Making, Problem Solving, Effective Communication, Interpersonal Relationships.', 
-    type: 'PDF', 
-    size: '3.1 MB', 
-    date: 'Jan 2025', 
-    category: 'Life Skills', 
-    isActiveContext: true, 
-    isSystemDoc: true 
-  },
-  { 
-    id: 'sys-kicd-agr-g7', 
-    title: 'Agriculture and Nutrition Grade 7 Rationalized Design', 
-    content: 'Strands: Conserving the Environment, Crop Production, Animal Production, Human Nutrition, Food Preservation.', 
-    type: 'PDF', 
-    size: '6.7 MB', 
-    date: 'Jan 2025', 
-    category: 'Agriculture', 
-    isActiveContext: true, 
-    isSystemDoc: true 
+    id: 'sys-sss-arts-sports-pathway', 
+    title: 'Senior Secondary Arts & Sports Pathway', 
+    content: 'Focused on Performing Arts, Visual Arts, and Sports Science. Integration of professional skills for the creative economy and athletic excellence.', 
+    type: 'PDF', size: '11.2 MB', date: '2025', category: 'Senior Secondary', isActiveContext: true, isSystemDoc: true 
   }
 ];
 
@@ -161,11 +97,22 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'online' | 'syncing' | 'offline'>(isSupabaseConfigured ? 'online' : 'offline');
+  const [syncStatus, setSyncStatus] = useState<'online' | 'syncing' | 'offline'>('online');
   
+  // Guard 1: Data has finished loading from Cloud
+  const [isDataInitialized, setIsDataInitialized] = useState(false);
+  // Guard 2: Something has actually changed in THIS session
+  const [isDirty, setIsDirty] = useState(false);
+
+  // State for Work / Current Views
   const [currentSow, setCurrentSow] = useState<SOWRow[]>([]);
   const [currentSowMeta, setCurrentSowMeta] = useState({ subject: '', grade: '', term: 1, termStart: new Date().toISOString().split('T')[0] });
   const [plannerPrefill, setPlannerPrefill] = useState<any>(null);
+  
+  // ARCHIVES
+  const [sowHistory, setSowHistory] = useState<SavedSOW[]>([]);
+  const [planHistory, setPlanHistory] = useState<SavedLessonPlan[]>([]);
+  const [noteHistory, setNoteHistory] = useState<SavedLessonNote[]>([]);
   
   const [profile, setProfile] = useState<UserProfile>({ 
     name: '', 
@@ -191,6 +138,10 @@ const App: React.FC = () => {
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (!session) {
+        setIsDataInitialized(false);
+        setIsDirty(false);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -222,20 +173,29 @@ const App: React.FC = () => {
       }
       if (appData) {
         setSlots(appData.slots || []);
-        // Merge system docs with user docs
+        setSowHistory(appData.sow_history || []);
+        setPlanHistory(appData.plan_history || []);
+        setNoteHistory(appData.note_history || []);
         setDocuments([...SYSTEM_CURRICULUM_DOCS, ...(appData.docs || [])]);
       }
-      setSyncStatus('online');
+      
+      // Delay enabling the sync slightly to ensure React has flushed state updates
+      setTimeout(() => {
+        setIsDataInitialized(true);
+        setSyncStatus('online');
+      }, 500);
     } catch (err) {
       console.error("Load failed:", err);
+      setIsDataInitialized(true); 
       setSyncStatus('offline');
     }
   };
 
   const syncToCloud = useCallback(async () => {
-    if (!session?.user || !navigator.onLine || !supabase) return;
-    setSyncStatus('syncing');
+    // CRITICAL: NEVER SYNC IF NOT INITIALIZED OR NOT DIRTY
+    if (!session?.user || !navigator.onLine || !supabase || !isDataInitialized || !isDirty) return;
     
+    setSyncStatus('syncing');
     try {
       await supabase.from('profiles').upsert({
         id: session.user.id,
@@ -252,39 +212,57 @@ const App: React.FC = () => {
       await supabase.from('user_data').upsert({
         user_id: session.user.id,
         slots,
+        sow_history: sowHistory,
+        plan_history: planHistory,
+        note_history: noteHistory,
         docs: documents.filter(d => !d.isSystemDoc),
         updated_at: new Date().toISOString()
       });
 
       setSyncStatus('online');
+      setIsDirty(false); // Reset dirty flag after successful sync
     } catch (err) {
       console.error("Sync failed:", err);
       setSyncStatus('offline');
     }
-  }, [session, profile, slots, documents]);
+  }, [session, profile, slots, sowHistory, planHistory, noteHistory, documents, isDataInitialized, isDirty]);
 
+  // Sync Timer
   useEffect(() => {
-    if (!isSupabaseConfigured || !session) return;
+    if (!isDataInitialized || !isDirty) return;
     const timer = setTimeout(() => {
       syncToCloud();
-    }, 5000); 
+    }, 4000); 
     return () => clearTimeout(timer);
-  }, [profile, slots, documents, syncToCloud, session]);
+  }, [isDirty, syncToCloud, isDataInitialized]);
+
+  // Helper wrappers to trigger dirty flag
+  const updateProfile = (p: UserProfile) => { setProfile(p); setIsDirty(true); };
+  const updateSlots = (s: LessonSlot[]) => { setSlots(s); setIsDirty(true); };
+  const updateSowHistory = (h: SavedSOW[]) => { setSowHistory(h); setIsDirty(true); };
+  const updatePlanHistory = (h: SavedLessonPlan[]) => { setPlanHistory(h); setIsDirty(true); };
+  const updateNoteHistory = (h: SavedLessonNote[]) => { setNoteHistory(h); setIsDirty(true); };
+  const updateDocuments = (d: KnowledgeDocument[]) => { setDocuments(d); setIsDirty(true); };
 
   const handleLogout = async () => {
     if (confirm("Log out of EduPlan?")) {
       if (supabase) await supabaseSignOut();
       setSession(null);
+      setIsDataInitialized(false);
+      setIsDirty(false);
       setProfile({ name: '', tscNumber: '', school: '', subjects: [], availableSubjects: [], grades: [], onboardedStaff: [] });
       setSlots([]);
+      setSowHistory([]);
+      setPlanHistory([]);
+      setNoteHistory([]);
       setDocuments(SYSTEM_CURRICULUM_DOCS);
       setActiveTab('dashboard');
     }
   };
 
   const stats = {
-    sowCount: JSON.parse(localStorage.getItem('eduplan_sow_history') || '[]').length,
-    planCount: JSON.parse(localStorage.getItem('eduplan_plan_history') || '[]').length,
+    sowCount: sowHistory.length,
+    planCount: planHistory.length,
     subjectCount: profile?.subjects?.length || 0,
     nextLesson: slots.length > 0 ? `${slots[0].subject}` : 'Schedule Empty'
   };
@@ -310,9 +288,10 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-100 rounded-full">
               <div className={`w-2 h-2 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : syncStatus === 'syncing' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'}`}></div>
               <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest leading-none">
-                {syncStatus === 'online' ? 'Cloud' : syncStatus === 'syncing' ? 'Sync' : 'Local'}
+                {syncStatus === 'online' ? (isDirty ? 'Changes Pending' : 'Cloud Ready') : syncStatus === 'syncing' ? 'Syncing...' : 'Offline'}
               </span>
             </div>
+            {!isDataInitialized && <span className="text-[8px] font-black text-indigo-400 uppercase animate-pulse">Safeguarding Archives...</span>}
           </div>
           
           <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setIsProfileModalOpen(true)}>
@@ -326,8 +305,8 @@ const App: React.FC = () => {
 
         <div className="max-w-7xl mx-auto">
           {activeTab === 'dashboard' && <Dashboard stats={stats} slots={slots} user={profile} onNavigate={setActiveTab} />}
-          {activeTab === 'registry' && <StaffManagement profile={profile} setProfile={setProfile} />}
-          {activeTab === 'timetable' && <Timetable slots={slots} setSlots={setSlots} profile={profile} setProfile={setProfile} />}
+          {activeTab === 'registry' && <StaffManagement profile={profile} setProfile={updateProfile} />}
+          {activeTab === 'timetable' && <Timetable slots={slots} setSlots={updateSlots} profile={profile} setProfile={updateProfile} />}
           {activeTab === 'sow' && (
             <SOWGenerator 
               timetableSlots={slots} 
@@ -338,6 +317,8 @@ const App: React.FC = () => {
               setPersistedMeta={setCurrentSowMeta}
               onPrefillPlanner={(data) => { setPlannerPrefill(data); setActiveTab('lesson-planner'); }}
               userProfile={profile}
+              history={sowHistory}
+              setHistory={updateSowHistory}
             />
           )}
           {activeTab === 'lesson-planner' && (
@@ -346,9 +327,13 @@ const App: React.FC = () => {
               prefill={plannerPrefill}
               onClearPrefill={() => setPlannerPrefill(null)}
               userProfile={profile}
+              savedPlans={planHistory}
+              setSavedPlans={updatePlanHistory}
+              savedNotes={noteHistory}
+              setSavedNotes={updateNoteHistory}
             />
           )}
-          {activeTab === 'documents' && <DocumentLibrary documents={documents} setDocuments={setDocuments} />}
+          {activeTab === 'documents' && <DocumentLibrary documents={documents} setDocuments={updateDocuments} />}
         </div>
       </main>
 
@@ -374,15 +359,15 @@ const App: React.FC = () => {
             <div className="p-10 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 ml-1">Full Legal Name</label>
-                <input type="text" className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-sm font-black outline-none focus:border-indigo-600 transition" value={profile.name} onChange={e => setProfile({...profile, name: e.target.value})} placeholder="e.g. Ms. Jane Doe" />
+                <input type="text" className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-sm font-black outline-none focus:border-indigo-600 transition" value={profile.name} onChange={e => updateProfile({...profile, name: e.target.value})} placeholder="e.g. Ms. Jane Doe" />
               </div>
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 ml-1">TSC Professional ID</label>
-                <input type="text" className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-sm font-black outline-none focus:border-indigo-600 transition" value={profile.tscNumber} onChange={e => setProfile({...profile, tscNumber: e.target.value})} placeholder="7654321" />
+                <input type="text" className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-sm font-black outline-none focus:border-indigo-600 transition" value={profile.tscNumber} onChange={e => updateProfile({...profile, tscNumber: e.target.value})} placeholder="7654321" />
               </div>
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5 ml-1">Current Institution</label>
-                <input type="text" className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-sm font-black outline-none focus:border-indigo-600 transition" value={profile.school} onChange={e => setProfile({...profile, school: e.target.value})} placeholder="Mombasa Academy" />
+                <input type="text" className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-sm font-black outline-none focus:border-indigo-600 transition" value={profile.school} onChange={e => updateProfile({...profile, school: e.target.value})} placeholder="Mombasa Academy" />
               </div>
 
               <div className="pt-6 border-t">
@@ -394,18 +379,7 @@ const App: React.FC = () => {
                          {hasSystemConfig ? 'Linked' : 'Not Found'}
                        </span>
                     </div>
-                    {isUsingManualConfig && (
-                      <div className="flex justify-between items-center border-t pt-3 border-slate-200">
-                         <span className="text-[9px] font-bold text-indigo-600 uppercase">Manual Override:</span>
-                         <button onClick={clearManualConfig} className="text-[9px] font-black bg-red-100 text-red-600 px-3 py-1 rounded-lg uppercase tracking-widest">Clear</button>
-                      </div>
-                    )}
                  </div>
-                 {!hasSystemConfig && (
-                   <p className="text-[8px] text-amber-600 font-bold mt-2 uppercase text-center leading-relaxed">
-                     System keys missing. Teachers will see setup screen until "Production" keys are fixed in Vercel.
-                   </p>
-                 )}
               </div>
 
               <button onClick={() => setIsProfileModalOpen(false)} className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition duration-300 mt-4">Save & Sync Profile</button>

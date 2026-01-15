@@ -4,8 +4,24 @@ import { SOWRow, LessonPlan } from "../types";
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 const cleanJSONResponse = (text: string) => {
-  // Handles cases where the model might still wrap JSON in markdown despite the mimeType setting
-  return text.replace(/```json/g, "").replace(/```/g, "").trim();
+  if (!text) return '[]';
+  let cleaned = text.trim();
+  // Remove markdown code blocks if present
+  if (cleaned.includes('```')) {
+    cleaned = cleaned.split(/```(?:json)?/)[1] || cleaned;
+    cleaned = cleaned.split('```')[0].trim();
+  }
+  // Remove any leading/trailing garbage
+  const startIdx = cleaned.indexOf('[');
+  const startObjIdx = cleaned.indexOf('{');
+  
+  if (startIdx !== -1 && (startObjIdx === -1 || startIdx < startObjIdx)) {
+    return cleaned.substring(startIdx, cleaned.lastIndexOf(']') + 1);
+  } else if (startObjIdx !== -1) {
+    return cleaned.substring(startObjIdx, cleaned.lastIndexOf('}') + 1);
+  }
+  
+  return cleaned;
 };
 
 export const generateSOW = async (
@@ -67,7 +83,7 @@ export const generateSOW = async (
       }
     });
 
-    const jsonStr = cleanJSONResponse(response.text || '[]');
+    const jsonStr = cleanJSONResponse(response.text);
     return JSON.parse(jsonStr) as SOWRow[];
   } catch (error) {
     console.error("Error generating SOW:", error);
@@ -85,7 +101,7 @@ export const generateLessonPlan = async (
 ): Promise<LessonPlan> => {
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', // Upgraded to Pro for more reliable complex JSON generation
+      model: 'gemini-3-flash-preview', 
       contents: `
       ${knowledgeContext ? `REFERENCE MATERIALS: \n${knowledgeContext}\n\n` : ''}
       ACT AS A KICD PEDAGOGICAL EXPERT.
@@ -98,19 +114,18 @@ export const generateLessonPlan = async (
       - Sub-Topic (Sub-Strand): ${subStrand}
       - School: ${schoolName}
 
-      MANDATORY CBE STRUCTURE:
-      1. Specific Learning Outcomes: Must be actionable and learner-centered.
-      2. Key Inquiry Questions: Must stimulate critical thinking.
-      3. Learning Resources: Suggest relevant materials/textbooks.
+      MANDATORY CBE STRUCTURE FOR THE RETURNED JSON:
+      1. Specific Learning Outcomes: Actionable and learner-centered.
+      2. Key Inquiry Questions: Stimulate critical thinking.
+      3. Learning Resources: Suggested materials/textbooks.
       4. Organization of Learning:
          - Introduction (5 mins): Engagement activity.
-         - Lesson Development (30 mins): Precisely 4 steps with specific learner-centered activities.
+         - Lesson Development (30 mins): 4 distinct steps with learner-centered activities.
          - Conclusion (5 mins): Summary and reflection.
-      5. Extended Activities: Community service learning or home-based activities.
+      5. Extended Activities: Community service or home projects.
       `,
       config: {
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 4000 }, // Allow model to reason through the complex pedagogical structure
         responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -150,13 +165,15 @@ export const generateLessonPlan = async (
           required: [
             "school", "year", "term", "learningArea", "grade", "strand", "subStrand", 
             "outcomes", "introduction", "lessonDevelopment", "conclusion", 
-            "extendedActivities", "keyInquiryQuestions", "learningResources"
+            "extendedActivities", "keyInquiryQuestions", "learningResources", "textbook", "roll"
           ]
         }
       }
     });
 
-    const jsonStr = cleanJSONResponse(response.text || '{}');
+    const jsonStr = cleanJSONResponse(response.text);
+    if (!jsonStr || jsonStr === '{}') throw new Error("AI returned empty content");
+    
     return JSON.parse(jsonStr) as LessonPlan;
   } catch (error) {
     console.error("Error generating lesson plan:", error);
