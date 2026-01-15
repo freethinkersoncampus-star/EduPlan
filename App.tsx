@@ -12,14 +12,49 @@ import { supabase, signOut as supabaseSignOut } from './services/supabase';
 import { LessonSlot, UserProfile, KnowledgeDocument, SOWRow, SavedSOW, SavedLessonPlan, SavedLessonNote } from './types';
 
 const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
-  { id: 'pp-lang', title: 'Language Activities (PP1-PP2)', content: 'KICD Design: Pre-reading, listening, and speaking skills for early learners.', type: 'KICD', size: '2.1 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'pp-math', title: 'Mathematical Activities (PP1-PP2)', content: 'KICD Design: Classification, number recognition, and simple pattern awareness.', type: 'KICD', size: '1.9 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'lp-literacy', title: 'Literacy (Grade 1-3)', content: 'Rationalized Design: Foundational reading and writing.', type: 'KICD', size: '3.1 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'up-science', title: 'Science & Technology (Grade 4-6)', content: 'Rationalized Design: Inquiry-based exploration.', type: 'KICD', size: '4.5 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'js-int-science', title: 'Integrated Science (Grade 7-9)', content: 'Rationalized Design: Physics, Chemistry, Biology.', type: 'KICD', size: '5.2 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true }
+  // PRE-PRIMARY (PP1-PP2)
+  { id: 'pp-lang', title: 'Language Activities', content: 'KICD Rationalized: Pre-reading, listening, and speaking skills for early learners.', type: 'KICD', size: '2.1 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'pp-math', title: 'Mathematical Activities', content: 'KICD Rationalized: Classification, number recognition, and simple pattern awareness.', type: 'KICD', size: '1.9 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'pp-env', title: 'Environmental Activities', content: 'KICD Rationalized: Cleanliness, safety, and social environment.', type: 'KICD', size: '2.4 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'pp-psycho', title: 'Psychomotor & Creative Activities', content: 'KICD Rationalized: Fine and gross motor skills development.', type: 'KICD', size: '3.1 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'pp-rel', title: 'Religious Education Activities', content: 'KICD Rationalized: Foundational moral and spiritual values.', type: 'KICD', size: '1.8 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
+
+  // LOWER PRIMARY (GRADE 1-3)
+  { id: 'lp-lit-e', title: 'English Literacy', content: 'Rationalized: Foundational English reading and writing.', type: 'KICD', size: '3.1 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'lp-lit-k', title: 'Kiswahili / KSL Literacy', content: 'Rationalized: Stadi za kusikiliza, kuzungumza, kusoma na kuandika.', type: 'KICD', size: '2.9 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'lp-math', title: 'Mathematics (G1-3)', content: 'Rationalized: Numbers, measurement, and basic geometry.', type: 'KICD', size: '3.5 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'lp-env', title: 'Environmental Activities (G1-3)', content: 'Rationalized: Weather, soil, water, and living things.', type: 'KICD', size: '2.8 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'lp-hygiene', title: 'Hygiene & Nutrition', content: 'Rationalized: Health habits and balanced diets.', type: 'KICD', size: '2.2 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'lp-creative', title: 'Movement & Creative Arts', content: 'Rationalized: Music, art, and physical education.', type: 'KICD', size: '4.1 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+
+  // UPPER PRIMARY (GRADE 4-6)
+  { id: 'up-eng', title: 'English (G4-6)', content: 'Rationalized Curriculum: Complex grammar and comprehension.', type: 'KICD', size: '3.8 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'up-kis', title: 'Kiswahili (G4-6)', content: 'Mtaala uliopunguzwa makali: Sarufi na Insha.', type: 'KICD', size: '3.6 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'up-math', title: 'Mathematics (G4-6)', content: 'Rationalized Curriculum: Fractions, algebra, and data handling.', type: 'KICD', size: '4.2 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'up-science', title: 'Science & Technology (G4-6)', content: 'Rationalized Curriculum: Human body, plants, and simple machines.', type: 'KICD', size: '4.5 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'up-ss', title: 'Social Studies (G4-6)', content: 'Rationalized Curriculum: Citizenship, mapping, and resources.', type: 'KICD', size: '3.9 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'up-agri', title: 'Agriculture & Nutrition (G4-6)', content: 'Rationalized Curriculum: Food production and kitchen gardening.', type: 'KICD', size: '3.7 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'up-cre', title: 'C.R.E / I.R.E / H.R.E (G4-6)', content: 'Rationalized Curriculum: Spiritual and moral growth.', type: 'KICD', size: '2.5 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'up-arts', title: 'Creative Arts (G4-6)', content: 'Rationalized Curriculum: Integrated Music, Art and PE.', type: 'KICD', size: '4.8 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+
+  // JUNIOR SCHOOL (GRADE 7-9)
+  { id: 'js-eng', title: 'English (JS)', content: 'Rationalized Design: Literature, oral skills, and linguistics.', type: 'KICD', size: '4.2 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'js-kis', title: 'Kiswahili (JS)', content: 'Mtaala: Fasihi simulizi na andishi.', type: 'KICD', size: '4.0 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'js-math', title: 'Mathematics (JS)', content: 'Rationalized: Advanced algebra, probability, and spatial awareness.', type: 'KICD', size: '5.1 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'js-is', title: 'Integrated Science', content: 'Rationalized: Biological, Physical and Chemical systems.', type: 'KICD', size: '5.8 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'js-ss', title: 'Social Studies (JS)', content: 'Rationalized: African history, geography, and globalization.', type: 'KICD', size: '4.6 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'js-agri', title: 'Agriculture & Nutrition (JS)', content: 'Rationalized: Commercial farming and advanced nutrition.', type: 'KICD', size: '4.3 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'js-pretech', title: 'Pre-Technical Studies', content: 'Rationalized: Coding, materials, and safety.', type: 'KICD', size: '5.5 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'js-health', title: 'Health Education', content: 'Rationalized: Human wellness and environmental health.', type: 'KICD', size: '3.2 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'js-ca', title: 'Creative Arts & Sports', content: 'Rationalized: Performance arts and athletics.', type: 'KICD', size: '5.0 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'js-rel', title: 'Life Skills & Religious Education', content: 'Rationalized: Career guidance and ethical living.', type: 'KICD', size: '3.0 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+
+  // SENIOR SCHOOL (PRE-GENERAL)
+  { id: 'ss-path', title: 'Senior School Pathways Guide', content: 'STEM, Social Sciences, and Arts & Sports guidelines.', type: 'KICD', size: '6.2 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true }
 ];
 
-const LOCAL_STORAGE_KEY = 'eduplan_backup_data_v2';
+// Helper to get user-specific storage key to prevent cross-account leakage
+const getStorageKey = (userId: string) => `eduplan_vault_${userId}`;
 
 const MobileNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (t: string) => void }) => (
   <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-3 flex justify-around items-center z-50 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
@@ -46,9 +81,6 @@ const App = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [syncStatus, setSyncStatus] = useState<'online' | 'syncing' | 'offline'>('online');
   
-  // AIR-LOCK PROTECTION: 
-  // isHydrated: True ONLY when cloud data is successfully applied to local state.
-  // isDirty: True ONLY when a user makes a manual change AFTER hydration is finished.
   const [isHydrated, setIsHydrated] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   
@@ -56,7 +88,7 @@ const App = () => {
   const [currentSowMeta, setCurrentSowMeta] = useState({ subject: '', grade: '', term: 1, termStart: new Date().toISOString().split('T')[0] });
   const [plannerPrefill, setPlannerPrefill] = useState<any>(null);
 
-  // States initialized to empty. No immediate localStorage read to prevent race conditions.
+  // States initialized to pure empty/default values
   const [sowHistory, setSowHistory] = useState<SavedSOW[]>([]);
   const [planHistory, setPlanHistory] = useState<SavedLessonPlan[]>([]);
   const [noteHistory, setNoteHistory] = useState<SavedLessonNote[]>([]);
@@ -64,41 +96,48 @@ const App = () => {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>(SYSTEM_CURRICULUM_DOCS);
   const [slots, setSlots] = useState<LessonSlot[]>([]);
 
-  // Track hydration attempts to prevent infinite loops
-  const hydrationAttempted = useRef(false);
+  const hydrationAttempted = useRef<string | null>(null);
+
+  const resetLocalState = useCallback(() => {
+    setIsHydrated(false);
+    setIsDirty(false);
+    setSlots([]);
+    setSowHistory([]);
+    setPlanHistory([]);
+    setNoteHistory([]);
+    setProfile({ name: '', tscNumber: '', school: '', subjects: [], availableSubjects: [], grades: [], onboardedStaff: [] });
+    setDocuments(SYSTEM_CURRICULUM_DOCS);
+    setCurrentSow([]);
+    setCurrentSowMeta({ subject: '', grade: '', term: 1, termStart: new Date().toISOString().split('T')[0] });
+  }, []);
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
+    
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      if (!session) {
-        // Reset everything on logout
-        setIsHydrated(false);
-        setIsDirty(false);
-        hydrationAttempted.current = false;
-        setSlots([]);
-        setSowHistory([]);
-        setPlanHistory([]);
-        setNoteHistory([]);
-        setProfile({ name: '', tscNumber: '', school: '', subjects: [], availableSubjects: [], grades: [], onboardedStaff: [] });
-        setDocuments(SYSTEM_CURRICULUM_DOCS);
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      setSession(newSession);
+      if (event === 'SIGNED_OUT' || !newSession) {
+        hydrationAttempted.current = null;
+        resetLocalState();
       }
     });
+    
     return () => subscription.unsubscribe();
-  }, []);
+  }, [resetLocalState]);
 
   const loadFromCloud = useCallback(async (userId: string) => {
-    if (!supabase || hydrationAttempted.current) return;
+    // Only attempt hydration once per user per mount
+    if (!supabase || hydrationAttempted.current === userId) return;
+    
     setSyncStatus('syncing');
+    console.log(`EDUPAN SYNC [${userId}]: Fetching cloud data...`);
     
     try {
-      console.log("EDUPAN SYNC: Initiating Force-Pull from Cloud...");
-      
-      // Atomic fetch of all user data
       const [profileRes, dataRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
         supabase.from('user_data').select('*').eq('user_id', userId).maybeSingle()
@@ -107,8 +146,7 @@ const App = () => {
       const p = profileRes.data;
       const d = dataRes.data;
 
-      // ATOMIC UPDATE: We set state directly. We do NOT use wrapUpdate here 
-      // because we don't want to mark the state as "Dirty" during the initial load.
+      // APPLY CLOUD DATA
       if (p) {
         setProfile({
           name: p.name || '',
@@ -128,87 +166,75 @@ const App = () => {
         if (d.note_history) setNoteHistory(d.note_history);
         if (d.docs) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...d.docs]);
       } else {
-        // SECONDARY BACKUP: Only if cloud is empty, check localStorage
-        const localBackup = localStorage.getItem(LOCAL_STORAGE_KEY);
+        // Fallback ONLY to user-specific local storage if cloud is totally empty
+        const userSpecificKey = getStorageKey(userId);
+        const localBackup = localStorage.getItem(userSpecificKey);
         if (localBackup) {
-          try {
-            const parsed = JSON.parse(localBackup);
-            if (parsed.profile) setProfile(parsed.profile);
-            if (parsed.slots) setSlots(parsed.slots);
-            if (parsed.sowHistory) setSowHistory(parsed.sowHistory);
-            if (parsed.planHistory) setPlanHistory(parsed.planHistory);
-            if (parsed.noteHistory) setNoteHistory(parsed.noteHistory);
-            if (parsed.documents) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...parsed.documents]);
-          } catch (e) { console.warn("Backup corrupted."); }
+          const parsed = JSON.parse(localBackup);
+          if (parsed.profile) setProfile(parsed.profile);
+          if (parsed.slots) setSlots(parsed.slots);
+          if (parsed.sowHistory) setSowHistory(parsed.sowHistory);
+          if (parsed.planHistory) setPlanHistory(parsed.planHistory);
+          if (parsed.noteHistory) setNoteHistory(parsed.noteHistory);
+          if (parsed.documents) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...parsed.documents]);
         }
       }
 
-      // AIR-LOCK UNLOCK: Now that data is safely loaded, we allow the app to mark itself as dirty.
       setIsHydrated(true);
       setSyncStatus('online');
-      hydrationAttempted.current = true;
-      console.log("EDUPAN SYNC: Cloud Hydration Complete. Air-Lock Disengaged.");
+      hydrationAttempted.current = userId;
+      console.log(`EDUPAN SYNC [${userId}]: Hydration successful.`);
 
     } catch (err) {
-      console.error("Cloud sync failed critically:", err);
-      // Even on error, we mark hydrated so the user can use the app offline, 
-      // but syncStatus will stay 'offline' to prevent dangerous writes.
+      console.error("Cloud fetch failed:", err);
+      // Mark as hydrated anyway to allow usage, but flag as offline
       setIsHydrated(true);
       setSyncStatus('offline');
     }
   }, []);
 
   useEffect(() => {
-    if (session?.user && supabase && !isHydrated && !hydrationAttempted.current) {
+    if (session?.user?.id && !isHydrated && hydrationAttempted.current !== session.user.id) {
       loadFromCloud(session.user.id);
     }
   }, [session, loadFromCloud, isHydrated]);
 
   const syncToCloud = useCallback(async () => {
-    // THE WRITE-BLOCKER:
-    // 1. Must have session.
-    // 2. Must have hydrated (loaded) data from cloud first.
-    // 3. Must have a dirty flag (unsaved changes).
-    if (!session?.user || !supabase || !isHydrated || !isDirty) {
-      return;
-    }
+    // PREVENT WRITE BEFORE LOAD: NEVER write to cloud if hydration isn't 100% confirmed.
+    if (!session?.user?.id || !supabase || !isHydrated || !isDirty) return;
     
     setSyncStatus('syncing');
+    const userId = session.user.id;
+    
     try {
-      console.log("EDUPAN SYNC: Pushing local updates to cloud...");
-      
-      // Use UPSERT for atomic cloud storage
-      const { error: profileError } = await supabase.from('profiles').upsert({
-        id: session.user.id,
-        name: profile.name,
-        tsc_number: profile.tscNumber,
-        school: profile.school,
-        subjects: profile.subjects,
-        onboarded_staff: profile.onboardedStaff,
-        available_subjects: profile.availableSubjects,
-        grades: profile.grades,
-        updated_at: new Date().toISOString()
-      });
-
-      if (profileError) throw profileError;
-
-      const { error: dataError } = await supabase.from('user_data').upsert({
-        user_id: session.user.id,
-        slots,
-        sow_history: sowHistory,
-        plan_history: planHistory,
-        note_history: noteHistory,
-        docs: documents.filter(d => !d.isSystemDoc),
-        updated_at: new Date().toISOString()
-      });
-
-      if (dataError) throw dataError;
+      await Promise.all([
+        supabase.from('profiles').upsert({
+          id: userId,
+          name: profile.name,
+          tsc_number: profile.tscNumber,
+          school: profile.school,
+          subjects: profile.subjects,
+          onboarded_staff: profile.onboardedStaff,
+          available_subjects: profile.availableSubjects,
+          grades: profile.grades,
+          updated_at: new Date().toISOString()
+        }),
+        supabase.from('user_data').upsert({
+          user_id: userId,
+          slots,
+          sow_history: sowHistory,
+          plan_history: planHistory,
+          note_history: noteHistory,
+          docs: documents.filter(d => !d.isSystemDoc),
+          updated_at: new Date().toISOString()
+        })
+      ]);
 
       setSyncStatus('online');
-      setIsDirty(false); // Changes are now saved.
+      setIsDirty(false);
 
-      // Update local backup
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ 
+      // Save to USER-SPECIFIC local key
+      localStorage.setItem(getStorageKey(userId), JSON.stringify({ 
         slots, 
         sowHistory, 
         planHistory, 
@@ -217,33 +243,28 @@ const App = () => {
         documents: documents.filter(d => !d.isSystemDoc) 
       }));
       
-      console.log("EDUPAN SYNC: Cloud write successful.");
     } catch (err) {
-      console.error("Cloud push failed:", err);
+      console.error("Cloud write failed:", err);
       setSyncStatus('offline');
     }
   }, [session, profile, slots, sowHistory, planHistory, noteHistory, documents, isHydrated, isDirty]);
 
-  // Debounced Sync
   useEffect(() => {
     if (!isHydrated || !isDirty) return;
-    const timer = setTimeout(() => syncToCloud(), 5000); // 5s debounce for mobile stability
+    const timer = setTimeout(() => syncToCloud(), 3000);
     return () => clearTimeout(timer);
   }, [isDirty, syncToCloud, isHydrated]);
 
-  // Wrap state updates to mark as dirty only if we are ready
   const wrapUpdate = (fn: Function) => (val: any) => { 
     fn(val); 
-    if (isHydrated) {
-      setIsDirty(true);
-    }
+    // Only allow state to become dirty AFTER we are sure we've finished the initial cloud download.
+    if (isHydrated) setIsDirty(true); 
   };
 
   const handleLogout = async () => {
     if (confirm("Logout from EduPlan?")) {
       if (supabase) await supabaseSignOut();
-      // State reset handled by onAuthStateChange
-      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      // Logic handled by onAuthStateChange
     }
   };
 
@@ -251,7 +272,7 @@ const App = () => {
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="text-center">
         <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Syncing Master Record...</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Verifying Identity...</p>
       </div>
     </div>
   );
@@ -267,15 +288,15 @@ const App = () => {
             <div className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full ${isDirty ? 'bg-amber-50' : 'bg-emerald-50'}`}>
               <div className={`w-2 h-2 rounded-full ${syncStatus === 'syncing' ? 'bg-amber-500 animate-pulse' : isDirty ? 'bg-amber-400' : 'bg-emerald-500'}`}></div>
               <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest leading-none">
-                {syncStatus === 'syncing' ? 'Cloud Sync...' : isDirty ? 'Unsaved' : 'Cloud Safe'}
+                {syncStatus === 'syncing' ? 'Vault Sync...' : isDirty ? 'Unsaved' : 'Secured'}
               </span>
             </div>
-            {!isHydrated && <span className="text-[8px] font-black text-indigo-400 uppercase animate-pulse tracking-widest">Airlock Protection Active</span>}
+            {!isHydrated && <span className="text-[8px] font-black text-indigo-400 uppercase animate-pulse tracking-widest">Hydrating Vault...</span>}
           </div>
           <div className="flex items-center gap-4 cursor-pointer group">
             <div className="text-right hidden sm:block">
               <p className="text-[11px] font-black text-slate-700 leading-none mb-1 uppercase tracking-tight">{profile.name || 'Teacher'}</p>
-              <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest leading-none">{profile.school || 'EduPlan Pro'}</p>
+              <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest leading-none">{profile.school || 'Private Institution'}</p>
             </div>
             <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.id}`} className="w-9 h-9 rounded-xl border-2 border-indigo-50 shadow-sm" alt="Profile" />
           </div>
