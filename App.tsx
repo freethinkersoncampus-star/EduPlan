@@ -53,7 +53,6 @@ const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
   { id: 'ss-path', title: 'Senior School Pathways Guide', content: 'STEM, Social Sciences, and Arts & Sports guidelines.', type: 'KICD', size: '6.2 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true }
 ];
 
-// Helper to get user-specific storage key to prevent cross-account leakage
 const getStorageKey = (userId: string) => `eduplan_vault_${userId}`;
 
 const MobileNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (t: string) => void }) => (
@@ -85,10 +84,18 @@ const App = () => {
   const [isDirty, setIsDirty] = useState(false);
   
   const [currentSow, setCurrentSow] = useState<SOWRow[]>([]);
-  const [currentSowMeta, setCurrentSowMeta] = useState({ subject: '', grade: '', term: 1, termStart: new Date().toISOString().split('T')[0] });
+  const [currentSowMeta, setCurrentSowMeta] = useState({ 
+    subject: '', 
+    grade: '', 
+    term: 1, 
+    year: 2025,
+    termStart: new Date().toISOString().split('T')[0],
+    termEnd: '',
+    halfTermStart: '',
+    halfTermEnd: ''
+  });
   const [plannerPrefill, setPlannerPrefill] = useState<any>(null);
 
-  // States initialized to pure empty/default values
   const [sowHistory, setSowHistory] = useState<SavedSOW[]>([]);
   const [planHistory, setPlanHistory] = useState<SavedLessonPlan[]>([]);
   const [noteHistory, setNoteHistory] = useState<SavedLessonNote[]>([]);
@@ -108,7 +115,16 @@ const App = () => {
     setProfile({ name: '', tscNumber: '', school: '', subjects: [], availableSubjects: [], grades: [], onboardedStaff: [] });
     setDocuments(SYSTEM_CURRICULUM_DOCS);
     setCurrentSow([]);
-    setCurrentSowMeta({ subject: '', grade: '', term: 1, termStart: new Date().toISOString().split('T')[0] });
+    setCurrentSowMeta({ 
+      subject: '', 
+      grade: '', 
+      term: 1, 
+      year: 2025,
+      termStart: new Date().toISOString().split('T')[0],
+      termEnd: '',
+      halfTermStart: '',
+      halfTermEnd: ''
+    });
   }, []);
 
   useEffect(() => {
@@ -131,7 +147,6 @@ const App = () => {
   }, [resetLocalState]);
 
   const loadFromCloud = useCallback(async (userId: string) => {
-    // Only attempt hydration once per user per mount
     if (!supabase || hydrationAttempted.current === userId) return;
     
     setSyncStatus('syncing');
@@ -146,7 +161,6 @@ const App = () => {
       const p = profileRes.data;
       const d = dataRes.data;
 
-      // APPLY CLOUD DATA
       if (p) {
         setProfile({
           name: p.name || '',
@@ -166,7 +180,6 @@ const App = () => {
         if (d.note_history) setNoteHistory(d.note_history);
         if (d.docs) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...d.docs]);
       } else {
-        // Fallback ONLY to user-specific local storage if cloud is totally empty
         const userSpecificKey = getStorageKey(userId);
         const localBackup = localStorage.getItem(userSpecificKey);
         if (localBackup) {
@@ -187,7 +200,6 @@ const App = () => {
 
     } catch (err) {
       console.error("Cloud fetch failed:", err);
-      // Mark as hydrated anyway to allow usage, but flag as offline
       setIsHydrated(true);
       setSyncStatus('offline');
     }
@@ -200,7 +212,6 @@ const App = () => {
   }, [session, loadFromCloud, isHydrated]);
 
   const syncToCloud = useCallback(async () => {
-    // PREVENT WRITE BEFORE LOAD: NEVER write to cloud if hydration isn't 100% confirmed.
     if (!session?.user?.id || !supabase || !isHydrated || !isDirty) return;
     
     setSyncStatus('syncing');
@@ -233,7 +244,6 @@ const App = () => {
       setSyncStatus('online');
       setIsDirty(false);
 
-      // Save to USER-SPECIFIC local key
       localStorage.setItem(getStorageKey(userId), JSON.stringify({ 
         slots, 
         sowHistory, 
@@ -257,14 +267,12 @@ const App = () => {
 
   const wrapUpdate = (fn: Function) => (val: any) => { 
     fn(val); 
-    // Only allow state to become dirty AFTER we are sure we've finished the initial cloud download.
     if (isHydrated) setIsDirty(true); 
   };
 
   const handleLogout = async () => {
     if (confirm("Logout from EduPlan?")) {
       if (supabase) await supabaseSignOut();
-      // Logic handled by onAuthStateChange
     }
   };
 

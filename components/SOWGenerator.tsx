@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { generateSOW } from '../services/geminiService';
 import { exportSOWToDocx } from '../services/exportService';
 import { SOWRow, LessonSlot, SavedSOW, UserProfile } from '../types';
@@ -46,6 +46,13 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     halfTermStart: persistedMeta?.halfTermStart || '',
     halfTermEnd: persistedMeta?.halfTermEnd || ''
   });
+
+  // Sync formData with persistedMeta updates
+  useEffect(() => {
+    if (persistedMeta) {
+      setFormData(prev => ({ ...prev, ...persistedMeta }));
+    }
+  }, [persistedMeta]);
 
   const lessonsPerWeek = useMemo(() => {
     if (!formData.subject || !formData.grade) return 0;
@@ -195,28 +202,39 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
         </div>
 
         {!showLibrary && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="space-y-8 animate-in slide-in-from-top duration-500">
+            {/* Primary Details Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Teaching Area</label>
-                <select className="w-full border-2 border-slate-50 p-3.5 rounded-xl bg-slate-50 font-black text-[11px] outline-none" 
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Workload Area</label>
+                <select className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 font-black text-[11px] outline-none focus:border-indigo-500 transition" 
                   value={`${formData.subject}|${formData.grade}`} 
                   onChange={e => {
                     const [s, g] = e.target.value.split('|');
-                    setFormData({...formData, subject: s, grade: g});
+                    const updated = {...formData, subject: s, grade: g};
+                    setFormData(updated);
+                    setPersistedMeta(updated);
                   }}
                 >
-                  <option value="|">-- Select Timetable Slot --</option>
-                  {userProfile.subjects.map(p => <option key={p.id} value={`${p.subject}|${p.grade}`}>{p.subject} ({p.grade})</option>)}
+                  <option value="|">-- Select Subject & Grade --</option>
+                  {userProfile.subjects.map(p => <option key={p.id} value={`${p.subject}|${p.grade}`}>{p.subject} — {p.grade}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Year</label>
-                <input type="number" className="w-full border-2 border-slate-50 p-3.5 rounded-xl bg-slate-50 font-black text-[11px] outline-none" value={formData.year} onChange={e => setFormData({...formData, year: parseInt(e.target.value)})} />
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Academic Year</label>
+                <input type="number" className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 font-black text-[11px] outline-none focus:border-indigo-500 transition" value={formData.year} onChange={e => {
+                  const val = parseInt(e.target.value);
+                  setFormData({...formData, year: val});
+                  setPersistedMeta({...formData, year: val});
+                }} />
               </div>
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Term</label>
-                <select className="w-full border-2 border-slate-50 p-3.5 rounded-xl bg-slate-50 font-black text-[11px] outline-none" value={formData.term} onChange={e => setFormData({...formData, term: parseInt(e.target.value)})}>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Current Term</label>
+                <select className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 font-black text-[11px] outline-none focus:border-indigo-500 transition" value={formData.term} onChange={e => {
+                  const val = parseInt(e.target.value);
+                  setFormData({...formData, term: val});
+                  setPersistedMeta({...formData, term: val});
+                }}>
                   <option value={1}>Term 1</option>
                   <option value={2}>Term 2</option>
                   <option value={3}>Term 3</option>
@@ -224,16 +242,48 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
               </div>
             </div>
 
+            {/* RESTORED: Term Dates Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Term Opening Date</label>
+                <input type="date" className="w-full border-2 border-white p-3.5 rounded-xl bg-white font-black text-[10px] outline-none focus:border-indigo-500 transition" value={formData.termStart} onChange={e => {
+                  setFormData({...formData, termStart: e.target.value});
+                  setPersistedMeta({...formData, termStart: e.target.value});
+                }} />
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Half Term Break Start</label>
+                <input type="date" className="w-full border-2 border-white p-3.5 rounded-xl bg-white font-black text-[10px] outline-none focus:border-indigo-500 transition" value={formData.halfTermStart} onChange={e => {
+                  setFormData({...formData, halfTermStart: e.target.value});
+                  setPersistedMeta({...formData, halfTermStart: e.target.value});
+                }} />
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Half Term End Date</label>
+                <input type="date" className="w-full border-2 border-white p-3.5 rounded-xl bg-white font-black text-[10px] outline-none focus:border-indigo-500 transition" value={formData.halfTermEnd} onChange={e => {
+                  setFormData({...formData, halfTermEnd: e.target.value});
+                  setPersistedMeta({...formData, halfTermEnd: e.target.value});
+                }} />
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Term Closing Date</label>
+                <input type="date" className="w-full border-2 border-white p-3.5 rounded-xl bg-white font-black text-[10px] outline-none focus:border-indigo-500 transition" value={formData.termEnd} onChange={e => {
+                  setFormData({...formData, termEnd: e.target.value});
+                  setPersistedMeta({...formData, termEnd: e.target.value});
+                }} />
+              </div>
+            </div>
+
             <button 
               onClick={handleGenerate} 
               disabled={loading || !formData.subject || lessonsPerWeek === 0} 
-              className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-indigo-700 transition disabled:opacity-30 flex flex-col items-center justify-center"
+              className="w-full bg-indigo-600 text-white py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.25em] shadow-2xl shadow-indigo-100 hover:bg-indigo-700 transition disabled:opacity-30 flex flex-col items-center justify-center"
             >
-              <div className="flex items-center gap-3">
-                {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-bolt"></i>}
-                {loading ? "GENERATING SCHEMES..." : "CONSTRUCT KICD SCHEME"}
+              <div className="flex items-center gap-4">
+                {loading ? <i className="fas fa-spinner fa-spin text-lg"></i> : <i className="fas fa-bolt text-lg"></i>}
+                {loading ? "ARCHITECTING SCHEME..." : "CONSTRUCT KICD SCHEME"}
               </div>
-              {loading && <span className="text-[8px] mt-1 opacity-70 tracking-widest">{loadingStatus}</span>}
+              {loading && <span className="text-[8px] mt-2 opacity-80 tracking-[0.3em] font-black uppercase">{loadingStatus}</span>}
             </button>
           </div>
         )}
@@ -241,89 +291,92 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
         {showLibrary && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
             {history.map(item => (
-              <div key={item.id} className="group relative p-6 border-2 border-slate-50 rounded-2xl bg-slate-50/50 hover:border-indigo-300 hover:bg-white transition cursor-pointer" onClick={() => { setPersistedSow(item.data); setFormData(item as any); setShowLibrary(false); }}>
-                <div className="flex justify-between items-start mb-1">
-                  <p className="text-[9px] font-black text-slate-400 uppercase">{item.year} • TERM {item.term}</p>
+              <div key={item.id} className="group relative p-8 border-2 border-slate-50 rounded-[2.5rem] bg-slate-50/50 hover:border-indigo-300 hover:bg-white transition cursor-pointer shadow-sm hover:shadow-xl" onClick={() => { setPersistedSow(item.data); setFormData(item as any); setPersistedMeta(item); setShowLibrary(false); }}>
+                <div className="flex justify-between items-start mb-2">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{item.year} • TERM {item.term}</p>
                   <button onClick={(e) => handleDeleteHistory(item.id, e)} className="text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1">
                     <i className="fas fa-trash-alt text-[10px]"></i>
                   </button>
                 </div>
-                <h4 className="font-black text-slate-800 uppercase text-xs">{item.subject} ({item.grade})</h4>
+                <h4 className="font-black text-slate-800 uppercase text-xs tracking-tight">{item.subject} ({item.grade})</h4>
+                <p className="text-[8px] text-indigo-400 font-bold uppercase mt-2">{item.data.length} Lessons Indexed</p>
               </div>
             ))}
+            {history.length === 0 && <div className="col-span-full py-20 text-center text-slate-300 font-black uppercase tracking-widest text-[10px] italic">No archived schemes found.</div>}
           </div>
         )}
       </div>
 
       {!showLibrary && persistedSow.length > 0 && (
         <div className="space-y-6 animate-in fade-in duration-500">
-          <div className="bg-white p-4 md:p-6 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4 md:gap-8 print:hidden">
+          <div className="bg-white p-4 md:p-6 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4 md:gap-8 print:hidden">
             <div className="flex-1 w-full">
-              <div className="flex justify-between items-end mb-1.5">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Coverage</span>
+              <div className="flex justify-between items-end mb-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Syllabus Completion</span>
                 <span className="text-sm font-black text-indigo-600">{coverageStats.percentage}%</span>
               </div>
-              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                <div className="h-full bg-indigo-500 transition-all duration-500" style={{ width: `${coverageStats.percentage}%` }}></div>
+              <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200 shadow-inner">
+                <div className="h-full bg-indigo-500 transition-all duration-700 rounded-full" style={{ width: `${coverageStats.percentage}%` }}></div>
               </div>
             </div>
             <div className="flex gap-3 w-full md:w-auto">
-              <button onClick={handlePrint} className="flex-1 md:flex-none bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest">PRINT</button>
-              <button onClick={handleDownloadDocx} className="flex-1 md:flex-none bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest">DOCX</button>
+              <button onClick={handlePrint} className="flex-1 md:flex-none bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-black transition">PRINT</button>
+              <button onClick={handleDownloadDocx} className="flex-1 md:flex-none bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-indigo-700 transition">DOCX</button>
               <button onClick={() => {
                 const entry = { id: Date.now().toString(), dateCreated: new Date().toLocaleDateString(), ...formData, data: persistedSow };
                 setHistory([entry, ...history]);
                 alert("Cloud Archive Updated.");
-              }} className="flex-1 md:flex-none bg-emerald-600 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest">SAVE</button>
+              }} className="flex-1 md:flex-none bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-emerald-700 transition">SAVE TO VAULT</button>
             </div>
           </div>
 
-          <div className="bg-white p-6 md:p-12 border-2 border-slate-100 shadow-2xl mb-32 print:p-0 print:border-none sow-card rounded-[2rem]">
-            <div className="text-center mb-8 md:mb-12">
-              <h1 className="text-lg md:text-2xl font-black uppercase underline decoration-2 underline-offset-8 mb-6 md:mb-10 leading-relaxed">
-                {formData.year} {formData.subject} {formData.grade} SCHEMES OF WORK TERM {getTermString(formData.term)}
+          <div className="bg-white p-6 md:p-14 border-2 border-slate-100 shadow-2xl mb-32 print:p-0 print:border-none sow-card rounded-[3rem]">
+            <div className="text-center mb-10 md:mb-14">
+              <h1 className="text-lg md:text-2xl font-black uppercase underline decoration-2 underline-offset-8 mb-4 leading-relaxed">
+                {formData.year} {formData.subject} {formData.grade} SCHEMES OF WORK
               </h1>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-slate-500">TERM {getTermString(formData.term)} — 2025 RATIONALIZED CURRICULUM</p>
             </div>
 
             <div className="overflow-x-auto relative custom-scrollbar">
-              <table className="w-full text-[9px] border-collapse border border-black print:text-[8px] min-w-[1000px] md:min-w-0">
+              <table className="w-full text-[9px] border-collapse border border-black print:text-[8px] min-w-[1200px] md:min-w-0">
                 <thead className="bg-slate-50 print:bg-transparent">
                   <tr>
-                    <th className="border border-black p-3 font-black uppercase w-20 text-center print:hidden sticky left-0 z-20 bg-slate-50">ACTIONS</th>
-                    <th className="border border-black p-3 font-black uppercase w-10 text-center">Wk</th>
-                    <th className="border border-black p-3 font-black uppercase w-10 text-center">Lsn</th>
-                    <th className="border border-black p-3 font-black uppercase w-20 text-center">Date</th>
-                    <th className="border border-black p-3 font-black uppercase w-32 text-left">Strand</th>
-                    <th className="border border-black p-3 font-black uppercase w-32 text-left">Sub Strand</th>
-                    <th className="border border-black p-3 font-black uppercase w-64 text-left">Specific Outcomes</th>
-                    <th className="border border-black p-3 font-black uppercase w-64 text-left">Experiences</th>
-                    <th className="border border-black p-3 font-black uppercase w-40 text-left">Resources</th>
-                    <th className="border border-black p-3 font-black uppercase w-40 text-left">Assessment</th>
-                    <th className="border border-black p-3 font-black uppercase w-20 text-left">Reflection</th>
+                    <th className="border border-black p-4 font-black uppercase w-20 text-center print:hidden sticky left-0 z-20 bg-slate-50">TOOLS</th>
+                    <th className="border border-black p-4 font-black uppercase w-10 text-center">Wk</th>
+                    <th className="border border-black p-4 font-black uppercase w-10 text-center">Lsn</th>
+                    <th className="border border-black p-4 font-black uppercase w-24 text-center">Date</th>
+                    <th className="border border-black p-4 font-black uppercase w-40 text-left">Strand</th>
+                    <th className="border border-black p-4 font-black uppercase w-40 text-left">Sub Strand</th>
+                    <th className="border border-black p-4 font-black uppercase w-64 text-left">Learning Outcomes</th>
+                    <th className="border border-black p-4 font-black uppercase w-64 text-left">Suggested Experiences</th>
+                    <th className="border border-black p-4 font-black uppercase w-44 text-left">Resources</th>
+                    <th className="border border-black p-4 font-black uppercase w-44 text-left">Assessment</th>
+                    <th className="border border-black p-4 font-black uppercase w-24 text-left">Refl.</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black">
                   {persistedSow.map((r, i) => (
-                    <tr key={i} className={`${r.isBreak ? 'bg-amber-50/40 italic' : ''} ${r.isCompleted ? 'bg-indigo-50/20' : ''}`}>
-                      <td className="border border-black p-2 text-center print:hidden bg-white sticky left-0 z-10">
+                    <tr key={i} className={`${r.isBreak ? 'bg-amber-50/60 font-black italic' : ''} ${r.isCompleted ? 'bg-indigo-50/30' : ''}`}>
+                      <td className="border border-black p-3 text-center print:hidden bg-white sticky left-0 z-10">
                         {!r.isBreak && (
-                          <div className="flex items-center gap-1.5 justify-center">
-                            <input type="checkbox" checked={r.isCompleted} onChange={() => toggleCompletion(i)} className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600" />
-                            <button onClick={() => setEditingIndex(editingIndex === i ? null : i)} className="p-1.5 bg-slate-100 rounded text-[8px] font-black uppercase">{editingIndex === i ? 'SAVE' : 'EDIT'}</button>
-                            <button onClick={() => onPrefillPlanner({ subject: formData.subject, grade: formData.grade, strand: r.strand, subStrand: r.subStrand, autoTrigger: 'plan' })} className="p-1.5 bg-indigo-600 text-white rounded"><i className="fas fa-magic text-[8px]"></i></button>
+                          <div className="flex items-center gap-2 justify-center">
+                            <input type="checkbox" checked={r.isCompleted} onChange={() => toggleCompletion(i)} className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+                            <button onClick={() => setEditingIndex(editingIndex === i ? null : i)} className="p-1.5 bg-slate-100 rounded-lg text-[8px] font-black uppercase border border-slate-200">{editingIndex === i ? 'SAVE' : 'EDIT'}</button>
+                            <button onClick={() => onPrefillPlanner({ subject: formData.subject, grade: formData.grade, strand: r.strand, subStrand: r.subStrand, autoTrigger: 'plan' })} className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-sm"><i className="fas fa-magic text-[8px]"></i></button>
                           </div>
                         )}
                       </td>
-                      <td className="border border-black p-2 text-center font-bold">{r.isBreak ? '-' : r.week}</td>
-                      <td className="border border-black p-2 text-center">{r.isBreak ? '-' : r.lesson}</td>
-                      <td className="border border-black p-2 text-center font-bold text-indigo-700">{r.date || '-'}</td>
-                      <td className="border border-black p-2 font-black italic uppercase leading-tight">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.strand} onChange={e => handleEditRow(i, 'strand', e.target.value)} /> : r.strand}</td>
-                      <td className="border border-black p-2 leading-tight">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.subStrand} onChange={e => handleEditRow(i, 'subStrand', e.target.value)} /> : r.subStrand}</td>
-                      <td className="border border-black p-2 text-[8px]">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.learningOutcomes} onChange={e => handleEditRow(i, 'learningOutcomes', e.target.value)} /> : r.learningOutcomes}</td>
-                      <td className="border border-black p-2 text-[8px]">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.teachingExperiences} onChange={e => handleEditRow(i, 'teachingExperiences', e.target.value)} /> : r.teachingExperiences}</td>
-                      <td className="border border-black p-2 text-[8px] font-bold italic">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.learningResources} onChange={e => handleEditRow(i, 'learningResources', e.target.value)} /> : r.learningResources}</td>
-                      <td className="border border-black p-2 text-[8px]">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.assessmentMethods} onChange={e => handleEditRow(i, 'assessmentMethods', e.target.value)} /> : r.assessmentMethods}</td>
-                      <td className="border border-black p-2">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.reflection} onChange={e => handleEditRow(i, 'reflection', e.target.value)} /> : r.reflection}</td>
+                      <td className="border border-black p-3 text-center font-black">{r.isBreak ? '-' : r.week}</td>
+                      <td className="border border-black p-3 text-center font-bold">{r.isBreak ? '-' : r.lesson}</td>
+                      <td className="border border-black p-3 text-center font-black text-indigo-800 uppercase tracking-tighter">{r.date || '-'}</td>
+                      <td className="border border-black p-3 font-black uppercase italic leading-tight text-[10px]">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-2 text-[9px] rounded" value={r.strand} onChange={e => handleEditRow(i, 'strand', e.target.value)} /> : r.strand}</td>
+                      <td className="border border-black p-3 font-bold leading-tight uppercase text-slate-700">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-2 text-[9px] rounded" value={r.subStrand} onChange={e => handleEditRow(i, 'subStrand', e.target.value)} /> : r.subStrand}</td>
+                      <td className="border border-black p-3 text-[9px] leading-relaxed font-medium">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-2 text-[9px] rounded min-h-[80px]" value={r.learningOutcomes} onChange={e => handleEditRow(i, 'learningOutcomes', e.target.value)} /> : r.learningOutcomes}</td>
+                      <td className="border border-black p-3 text-[9px] leading-relaxed font-medium">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-2 text-[9px] rounded min-h-[80px]" value={r.teachingExperiences} onChange={e => handleEditRow(i, 'teachingExperiences', e.target.value)} /> : r.teachingExperiences}</td>
+                      <td className="border border-black p-3 text-[9px] font-bold italic text-slate-600">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-2 text-[9px] rounded" value={r.learningResources} onChange={e => handleEditRow(i, 'learningResources', e.target.value)} /> : r.learningResources}</td>
+                      <td className="border border-black p-3 text-[9px] font-medium leading-relaxed">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-2 text-[9px] rounded" value={r.assessmentMethods} onChange={e => handleEditRow(i, 'assessmentMethods', e.target.value)} /> : r.assessmentMethods}</td>
+                      <td className="border border-black p-3">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-2 text-[9px] rounded" value={r.reflection} onChange={e => handleEditRow(i, 'reflection', e.target.value)} /> : r.reflection}</td>
                     </tr>
                   ))}
                 </tbody>
