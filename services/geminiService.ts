@@ -10,8 +10,7 @@ const getAIClient = () => {
 };
 
 const cleanJsonString = (str: string): string => {
-  // Enhanced robust extraction: find the actual start and end of the JSON content
-  // First, remove markdown code block markers if they exist
+  // Removes markdown code blocks and finds the outermost JSON structure
   let cleaned = str.replace(/```json/g, "").replace(/```/g, "").trim();
   
   const firstArray = cleaned.indexOf('[');
@@ -19,16 +18,13 @@ const cleanJsonString = (str: string): string => {
   const firstObject = cleaned.indexOf('{');
   const lastObject = cleaned.lastIndexOf('}');
 
-  // Determine if we are looking for an array or an object
-  // If it's a SOW, we usually expect an array. If it's a Lesson Plan, an object.
-  // We'll return the outermost structure found.
-  
   const arrayStart = firstArray !== -1 ? firstArray : Infinity;
   const objectStart = firstObject !== -1 ? firstObject : Infinity;
 
+  // Extract the true JSON part to avoid errors from model "chatter"
   if (arrayStart < objectStart && lastArray !== -1) {
     return cleaned.substring(firstArray, lastArray + 1);
-  } else if (lastObject !== -1) {
+  } else if (lastObject !== -1 && firstObject !== -1) {
     return cleaned.substring(firstObject, lastObject + 1);
   }
   
@@ -47,22 +43,19 @@ export const generateSOW = async (
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `
-      ${knowledgeContext ? `KICD OFFICIAL REFERENCE MATERIALS: \n${knowledgeContext}\n\n` : ''}
-      Generate a CBE-compliant Rationalized Scheme of Work for: ${subject}, Level: ${grade}, Term: ${term}.
-      Generate exactly ${lessonSlotsCount} lessons for a full term.
+      CONTEXT: ${knowledgeContext || 'KICD Rationalized Curriculum 2024/2025'}
+      TASK: Generate a CBE Rationalized Scheme of Work for ${subject}, ${grade}, Term ${term}.
+      Generate exactly ${lessonSlotsCount} lessons.
       
-      MANDATORY CBE GUIDELINES:
-      - Use the LATEST 2024/2025 Rationalized Curriculum standards.
-      - learningOutcomes: Must start with "By the end of the lesson, the learner should be able to:" followed by a lettered list (a, b, c).
-      - teachingExperiences: Must be learner-centered and activity-based.
-      - keyInquiryQuestions: Must be relevant to the sub-strand.
-      - learningResources: Cite specific Kenyan textbooks and digital tools.
-      - assessmentMethods: Include formative and peer assessment.
-
-      RETURN A VALID JSON ARRAY ONLY.
+      STRICT CBE REQUIREMENTS:
+      - Outcomes must be measurable (e.g., "By the end of the lesson, the learner should be able to...")
+      - Teaching Experiences must be learner-centered.
+      - Resources must cite Kenyan textbooks and local materials.
+      - Assessment must be formative.
       `,
       config: {
-        systemInstruction: "ACT AS A KICD CURRICULUM SPECIALIST. You are an expert in the Kenyan Competency Based Education (CBE) system. Ensure all outputs are strictly valid JSON arrays without conversational filler. Use gemini-3-pro-preview capabilities for high fidelity pedagogical accuracy.",
+        thinkingConfig: { thinkingBudget: 32768 },
+        systemInstruction: "You are a KICD Curriculum Specialist. You must only output valid JSON matching the provided schema. Follow the Kenyan CBE 2024/2025 rationalized standards strictly.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -86,13 +79,10 @@ export const generateSOW = async (
       }
     });
 
-    const text = response.text;
-    if (!text) throw new Error("AI returned an empty response.");
-    
-    const jsonStr = cleanJsonString(text);
+    const jsonStr = cleanJsonString(response.text || "");
     return JSON.parse(jsonStr) as SOWRow[];
   } catch (error) {
-    console.error("Critical error in generateSOW:", error);
+    console.error("SOW Generation Failed:", error);
     throw error;
   }
 };
@@ -110,29 +100,23 @@ export const generateLessonPlan = async (
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview', 
       contents: `
-      ${knowledgeContext ? `OFFICIAL REFERENCE CONTEXT: \n${knowledgeContext}\n\n` : ''}
-      GENERATE A COMPREHENSIVE KENYAN CBE LESSON PLAN.
+      CONTEXT: ${knowledgeContext || 'KICD Standards'}
+      SUBJECT: ${subject}
+      LEVEL: ${grade}
+      TOPIC: ${subStrand}
       
-      Learning Area: ${subject}
-      Grade: ${grade}
-      Strand: ${strand}
-      Sub-Strand: ${subStrand}
-      School: ${schoolName}
-
-      STRICT CBE STRUCTURE REQUIREMENTS:
-      1. Specific Learning Outcomes: Must be measurable (e.g., "Learner should be able to...").
-      2. Key Inquiry Questions: Relevant open-ended questions.
-      3. Learning Resources: Identify relevant textbooks and local materials.
-      4. Organization of Learning: 
-         - Introduction (5m): Stimulate interest, link to prior knowledge.
-         - Lesson Development (30m): Step-by-step learner-centered activities.
-         - Conclusion (5m): Summary and reflection.
-      5. Assessment: Clear formative strategies.
-
-      OUTPUT MUST BE VALID JSON MATCHING THE SCHEMA PROVIDED.
+      GENERATE A DETAILED CBE LESSON PLAN FOLLOWING THESE SECTIONS:
+      1. SPECIFIC LEARNING OUTCOMES (Measurable)
+      2. KEY INQUIRY QUESTIONS (Open-ended)
+      3. LEARNING RESOURCES (Kenyan context)
+      4. ORGANIZATION OF LEARNING:
+         - Introduction (5 min): Catchy start
+         - Lesson Development (30 min): Steps 1, 2, 3 (Learner Activities)
+         - Conclusion (5 min): Summary & Reflection
       `,
       config: {
-        systemInstruction: "ACT AS A SENIOR KICD PEDAGOGICAL CONSULTANT. You excel at creating learner-centered, activity-based lesson plans that follow the 2024/2025 Kenyan rationalized curriculum. Your output MUST be strictly structured JSON to be consumed by a web application.",
+        thinkingConfig: { thinkingBudget: 32768 },
+        systemInstruction: "Act as a Senior Pedagogy Consultant for the Kenyan Ministry of Education. Output MUST be valid JSON. Ensure pedagogical depth in the 'lessonDevelopment' section.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -179,12 +163,10 @@ export const generateLessonPlan = async (
       }
     });
 
-    const text = response.text;
-    if (!text) throw new Error("AI returned empty content");
-    
-    return JSON.parse(cleanJsonString(text)) as LessonPlan;
+    const jsonStr = cleanJsonString(response.text || "");
+    return JSON.parse(jsonStr) as LessonPlan;
   } catch (error) {
-    console.error("Critical error in generateLessonPlan:", error);
+    console.error("Lesson Plan Generation Failed:", error);
     throw error;
   }
 };
@@ -201,17 +183,23 @@ export const generateLessonNotes = async (
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-preview',
       contents: `
-      ${knowledgeContext ? `OFFICIAL KICD BASE CONTENT: \n${knowledgeContext}\n\n` : ''}
-      Subject: ${subject} Grade ${grade}. Topic: ${topic}.
-      Write detailed study notes in Markdown format for a Kenyan learner. Include clear headers, bullet points, and summaries.`,
+      GENERATE DETAILED STUDY NOTES
+      Subject: ${subject}
+      Level: ${grade}
+      Topic: ${topic}
+      
+      ${knowledgeContext ? `REFERENCE: ${knowledgeContext}` : ''}
+      Format: Markdown with clear headers, bullet points, and a summary section.
+      `,
       config: {
-        systemInstruction: "WRITE COMPREHENSIVE STUDY NOTES for a Kenyan learner following the CBE system. Use clear headers and formatting.",
+        thinkingConfig: { thinkingBudget: 32768 },
+        systemInstruction: "Create educational, engaging study notes for Kenyan learners. Use Kenyan English and terminology. Follow CBE competency guidelines.",
       }
     });
 
     return response.text || "Notes generation failed.";
   } catch (error) {
-    console.error("Critical error in generateLessonNotes:", error);
+    console.error("Notes Generation Failed:", error);
     throw error;
   }
 };
