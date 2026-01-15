@@ -11,11 +11,8 @@ const getAIClient = () => {
 
 const cleanJsonString = (str: string): string => {
   if (!str) return "";
-  
-  // Try to find the first JSON structure start
   const firstBrace = str.indexOf('{');
   const firstBracket = str.indexOf('[');
-  
   let start = -1;
   if (firstBrace !== -1 && firstBracket !== -1) {
     start = Math.min(firstBrace, firstBracket);
@@ -24,20 +21,15 @@ const cleanJsonString = (str: string): string => {
   } else if (firstBracket !== -1) {
     start = firstBracket;
   }
-
-  // Try to find the last JSON structure end
   const lastBrace = str.lastIndexOf('}');
   const lastBracket = str.lastIndexOf(']');
   const end = Math.max(lastBrace, lastBracket);
-  
   if (start !== -1 && end !== -1 && end > start) {
     let json = str.substring(start, end + 1);
-    // Basic recovery for common AI truncation (closing brackets)
     if (json.startsWith('[') && !json.endsWith(']')) json += ']';
     if (json.startsWith('{') && !json.endsWith('}')) json += '}';
     return json;
   }
-  
   return str.replace(/```json/g, "").replace(/```/g, "").trim();
 };
 
@@ -52,7 +44,7 @@ export const generateSOW = async (
   try {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: `
       CONTEXT: ${knowledgeContext || 'KICD Rationalized Curriculum 2024/2025'}
       TASK: Generate a CBE Rationalized Scheme of Work for ${subject}, ${grade}, Term ${term}.
@@ -66,8 +58,7 @@ export const generateSOW = async (
       `,
       config: {
         maxOutputTokens: 8000,
-        thinkingConfig: { thinkingBudget: 0 },
-        systemInstruction: "You are a KICD Curriculum Specialist. Output STRICTLY a valid JSON array of objects. No conversational text. No markdown formatting. Follow Kenyan CBE 2024/2025 standards.",
+        systemInstruction: "You are a KICD Curriculum Specialist. Output STRICTLY a valid JSON array. No markdown. No conversational text.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -90,14 +81,8 @@ export const generateSOW = async (
         }
       }
     });
-
     const jsonStr = cleanJsonString(response.text || "");
-    try {
-        return JSON.parse(jsonStr) as SOWRow[];
-    } catch (parseError) {
-        console.error("JSON Parse Error. String was:", jsonStr);
-        throw new Error("AI data was too large for one request. Please try again; the system will auto-batch next time.");
-    }
+    return JSON.parse(jsonStr) as SOWRow[];
   } catch (error) {
     console.error("SOW Generation Failed:", error);
     throw error;
@@ -115,21 +100,15 @@ export const generateLessonPlan = async (
   try {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', 
+      model: 'gemini-3-pro-preview', 
       contents: `
       SUBJECT: ${subject} | LEVEL: ${grade} | TOPIC: ${subStrand}
       CONTEXT: ${knowledgeContext || 'Standard KICD CBE'}
-      
-      GENERATE A DETAILED CBE LESSON PLAN:
-      1. OUTCOMES (Measurable)
-      2. INQUIRY QUESTIONS (Open-ended)
-      3. RESOURCES (Kenyan Context)
-      4. ORGANIZATION: Intro, Development, Conclusion.
+      TASK: Generate a DETAILED CBE LESSON PLAN. You MUST provide real values for all fields including 'roll', 'textbook', and 'time'.
       `,
       config: {
         maxOutputTokens: 6000,
-        thinkingConfig: { thinkingBudget: 0 },
-        systemInstruction: "Act as a Senior KICD Consultant. Output STRICTLY valid JSON. No text outside the JSON.",
+        systemInstruction: "Act as a Senior KICD Consultant. Output STRICTLY valid JSON. Ensure all schema fields are populated with relevant strings or numbers.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -175,14 +154,10 @@ export const generateLessonPlan = async (
         }
       }
     });
-
     const jsonStr = cleanJsonString(response.text || "");
-    try {
-        return JSON.parse(jsonStr) as LessonPlan;
-    } catch (parseError) {
-        throw new Error("Invalid Lesson Plan format received.");
-    }
+    return JSON.parse(jsonStr) as LessonPlan;
   } catch (error) {
+    console.error("Lesson Plan Generation Failed:", error);
     throw error;
   }
 };
@@ -197,15 +172,15 @@ export const generateLessonNotes = async (
   try {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}. Generate Markdown notes following Kenyan CBE guidelines.`,
+      model: 'gemini-3-pro-preview',
+      contents: `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}. Generate detailed pedagogical study notes following Kenyan CBE guidelines. Use Markdown.`,
       config: {
-        maxOutputTokens: 6000,
-        thinkingConfig: { thinkingBudget: 0 }
+        maxOutputTokens: 6000
       }
     });
     return response.text || "Notes generation failed.";
   } catch (error) {
+    console.error("Notes Generation Failed:", error);
     throw error;
   }
 };
