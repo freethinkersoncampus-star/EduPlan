@@ -32,6 +32,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
   setHistory
 }) => {
   const [loading, setLoading] = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState('');
   const [showLibrary, setShowLibrary] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   
@@ -74,7 +75,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
 
   const calculateDatesFromTimetable = (enrichedSow: SOWRow[]) => {
     if (!formData.termStart) return enrichedSow;
-    
     const startDate = new Date(formData.termStart);
     const myLessons = timetableSlots
       .filter(s => s.subject === formData.subject && s.grade === formData.grade && s.type === 'lesson')
@@ -86,7 +86,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       if (row.isBreak) return row;
       const lessonInWeekIndex = (row.lesson - 1) % myLessons.length;
       const lessonDay = myLessons[lessonInWeekIndex];
-      
       const date = new Date(startDate);
       const daysToAdd = (row.week - 1) * 7 + DAYS_OF_WEEK.indexOf(lessonDay.day);
       date.setDate(startDate.getDate() + daysToAdd);
@@ -107,26 +106,40 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     }
 
     setLoading(true);
+    setLoadingStatus('Architecting Phase 1 (Weeks 1-6)...');
     try {
-      const weeksCount = 12; 
-      const countToGenerate = weeksCount * lessonsPerWeek;
-      
-      const result = await generateSOW(
+      // Phase 1: Weeks 1-6
+      const result1 = await generateSOW(
         formData.subject, 
         formData.grade, 
         formData.term, 
-        countToGenerate, 
-        knowledgeContext
+        6 * lessonsPerWeek, 
+        knowledgeContext,
+        1
+      );
+
+      setLoadingStatus('Architecting Phase 2 (Weeks 7-12)...');
+      // Phase 2: Weeks 7-12
+      const result2 = await generateSOW(
+        formData.subject, 
+        formData.grade, 
+        formData.term, 
+        6 * lessonsPerWeek, 
+        knowledgeContext,
+        7
       );
       
+      const rawResult = [...result1, ...result2];
       const enriched: SOWRow[] = [];
-      result.forEach((row) => {
-        if (row.week === 7 && !enriched.find(e => e.week === 7 && e.isBreak)) {
+      
+      rawResult.forEach((row) => {
+        // Inject Half-Term Break logic after Week 6
+        if (row.week === 7 && !enriched.find(e => e.isBreak)) {
           enriched.push({
             week: 7, lesson: 0, 
             strand: 'HALF TERM BREAK', subStrand: '-', 
             learningOutcomes: 'Recuperation & Academic Review', 
-            teachingExperiences: 'Holiday', keyInquiryQuestions: '-', 
+            teachingExperiences: 'Learner-led review', keyInquiryQuestions: '-', 
             learningResources: '-', assessmentMethods: '-', reflection: '-', isBreak: true
           });
         }
@@ -138,9 +151,10 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       setPersistedMeta(formData);
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "AI Generation Error. Please check your internet connection or try a shorter subject name.");
+      alert(err.message || "AI Generation Error. Please try again.");
     } finally {
       setLoading(false);
+      setLoadingStatus('');
     }
   };
 
@@ -156,13 +170,8 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     setPersistedSow(updated);
   };
 
-  const handlePrint = () => {
-    setTimeout(() => { window.print(); }, 100);
-  };
-
-  const handleDownloadDocx = () => {
-    exportSOWToDocx(persistedSow, formData, userProfile);
-  };
+  const handlePrint = () => { setTimeout(() => { window.print(); }, 100); };
+  const handleDownloadDocx = () => { exportSOWToDocx(persistedSow, formData, userProfile); };
 
   const handleDeleteHistory = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -189,7 +198,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="lg:col-span-2">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Teaching Load</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5 ml-1">Teaching Area</label>
                 <select className="w-full border-2 border-slate-50 p-3.5 rounded-xl bg-slate-50 font-black text-[11px] outline-none" 
                   value={`${formData.subject}|${formData.grade}`} 
                   onChange={e => {
@@ -215,38 +224,22 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-               <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Opening</label>
-                  <input type="date" className="w-full border-2 border-slate-50 p-3.5 rounded-xl bg-slate-50 font-black text-[11px] outline-none" value={formData.termStart} onChange={e => setFormData({...formData, termStart: e.target.value})} />
-               </div>
-               <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Closing</label>
-                  <input type="date" className="w-full border-2 border-slate-50 p-3.5 rounded-xl bg-slate-50 font-black text-[11px] outline-none" value={formData.termEnd} onChange={e => setFormData({...formData, termEnd: e.target.value})} />
-               </div>
-               <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Half Start</label>
-                  <input type="date" className="w-full border-2 border-slate-50 p-3.5 rounded-xl bg-slate-50 font-black text-[11px] outline-none" value={formData.halfTermStart} onChange={e => setFormData({...formData, halfTermStart: e.target.value})} />
-               </div>
-               <div>
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-1.5">Half End</label>
-                  <input type="date" className="w-full border-2 border-slate-50 p-3.5 rounded-xl bg-slate-50 font-black text-[11px] outline-none" value={formData.halfTermEnd} onChange={e => setFormData({...formData, halfTermEnd: e.target.value})} />
-               </div>
-            </div>
-
             <button 
               onClick={handleGenerate} 
               disabled={loading || !formData.subject || lessonsPerWeek === 0} 
-              className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-indigo-700 transition disabled:opacity-30 flex items-center justify-center gap-3"
+              className="w-full bg-indigo-600 text-white py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl hover:bg-indigo-700 transition disabled:opacity-30 flex flex-col items-center justify-center"
             >
-              {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-bolt"></i>}
-              {loading ? "GENERATING SCHEMES..." : "CONSTRUCT KICD SCHEME"}
+              <div className="flex items-center gap-3">
+                {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-bolt"></i>}
+                {loading ? "GENERATING SCHEMES..." : "CONSTRUCT KICD SCHEME"}
+              </div>
+              {loading && <span className="text-[8px] mt-1 opacity-70 tracking-widest">{loadingStatus}</span>}
             </button>
           </div>
         )}
 
         {showLibrary && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300 max-h-[400px] overflow-y-auto custom-scrollbar p-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
             {history.map(item => (
               <div key={item.id} className="group relative p-6 border-2 border-slate-50 rounded-2xl bg-slate-50/50 hover:border-indigo-300 hover:bg-white transition cursor-pointer" onClick={() => { setPersistedSow(item.data); setFormData(item as any); setShowLibrary(false); }}>
                 <div className="flex justify-between items-start mb-1">
@@ -258,7 +251,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                 <h4 className="font-black text-slate-800 uppercase text-xs">{item.subject} ({item.grade})</h4>
               </div>
             ))}
-            {history.length === 0 && <p className="col-span-full text-center py-10 text-slate-300 italic font-black uppercase text-[10px]">Library Empty.</p>}
           </div>
         )}
       </div>
@@ -272,47 +264,25 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                 <span className="text-sm font-black text-indigo-600">{coverageStats.percentage}%</span>
               </div>
               <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                <div className="h-full bg-indigo-500 transition-all duration-500 shadow-[0_0_10px_rgba(79,70,229,0.5)]" style={{ width: `${coverageStats.percentage}%` }}></div>
+                <div className="h-full bg-indigo-500 transition-all duration-500" style={{ width: `${coverageStats.percentage}%` }}></div>
               </div>
             </div>
             <div className="flex gap-3 w-full md:w-auto">
-              <button onClick={handlePrint} className="flex-1 md:flex-none bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">
-                <i className="fas fa-print"></i> PRINT
-              </button>
-              <button onClick={handleDownloadDocx} className="flex-1 md:flex-none bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest flex items-center justify-center gap-2">
-                <i className="fas fa-file-word"></i> DOCX
-              </button>
+              <button onClick={handlePrint} className="flex-1 md:flex-none bg-slate-900 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest">PRINT</button>
+              <button onClick={handleDownloadDocx} className="flex-1 md:flex-none bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest">DOCX</button>
               <button onClick={() => {
                 const entry = { id: Date.now().toString(), dateCreated: new Date().toLocaleDateString(), ...formData, data: persistedSow };
-                const newHistory = [entry, ...history];
-                setHistory(newHistory);
+                setHistory([entry, ...history]);
                 alert("Cloud Archive Updated.");
-              }} className="flex-1 md:flex-none bg-emerald-600 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest">
-                <i className="fas fa-save"></i> SAVE
-              </button>
+              }} className="flex-1 md:flex-none bg-emerald-600 text-white px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest">SAVE</button>
             </div>
           </div>
 
           <div className="bg-white p-6 md:p-12 border-2 border-slate-100 shadow-2xl mb-32 print:p-0 print:border-none sow-card rounded-[2rem]">
-             <div className="text-center mb-8 md:mb-12">
-              <h1 className="text-lg md:text-2xl font-black uppercase underline decoration-2 underline-offset-8 mb-6 md:mb-10 leading-relaxed px-4">
+            <div className="text-center mb-8 md:mb-12">
+              <h1 className="text-lg md:text-2xl font-black uppercase underline decoration-2 underline-offset-8 mb-6 md:mb-10 leading-relaxed">
                 {formData.year} {formData.subject} {formData.grade} SCHEMES OF WORK TERM {getTermString(formData.term)}
               </h1>
-              
-              <div className="flex flex-wrap justify-center gap-x-8 gap-y-4 text-[9px] md:text-[11px] font-black uppercase px-4">
-                <div className="flex items-end flex-1 min-w-[150px]">
-                  <span>NAME</span>
-                  <div className="flex-1 border-b border-dotted border-black ml-2 h-4 text-center">{userProfile.name}</div>
-                </div>
-                <div className="flex items-end flex-1 min-w-[180px]">
-                  <span>SCHOOL</span>
-                  <div className="flex-1 border-b border-dotted border-black ml-2 h-4 text-center">{userProfile.school}</div>
-                </div>
-                <div className="flex items-end w-24">
-                  <span>TERM</span>
-                  <div className="flex-1 border-b border-dotted border-black ml-2 h-4 text-center">{formData.term}</div>
-                </div>
-              </div>
             </div>
 
             <div className="overflow-x-auto relative custom-scrollbar">
@@ -334,8 +304,8 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                 </thead>
                 <tbody className="divide-y divide-black">
                   {persistedSow.map((r, i) => (
-                    <tr key={i} className={`${r.isBreak ? 'bg-amber-50/40 italic' : ''} ${r.isCompleted ? 'bg-indigo-50/20' : ''} group print:bg-transparent`}>
-                      <td className="border border-black p-2 text-center print:hidden whitespace-nowrap bg-white sticky left-0 z-10 group-hover:bg-slate-50 transition shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
+                    <tr key={i} className={`${r.isBreak ? 'bg-amber-50/40 italic' : ''} ${r.isCompleted ? 'bg-indigo-50/20' : ''}`}>
+                      <td className="border border-black p-2 text-center print:hidden bg-white sticky left-0 z-10">
                         {!r.isBreak && (
                           <div className="flex items-center gap-1.5 justify-center">
                             <input type="checkbox" checked={r.isCompleted} onChange={() => toggleCompletion(i)} className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600" />
@@ -347,28 +317,13 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                       <td className="border border-black p-2 text-center font-bold">{r.isBreak ? '-' : r.week}</td>
                       <td className="border border-black p-2 text-center">{r.isBreak ? '-' : r.lesson}</td>
                       <td className="border border-black p-2 text-center font-bold text-indigo-700">{r.date || '-'}</td>
-                      
-                      <td className="border border-black p-2 font-black italic uppercase leading-tight">
-                        {editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.strand} onChange={e => handleEditRow(i, 'strand', e.target.value)} /> : r.strand}
-                      </td>
-                      <td className="border border-black p-2 leading-tight">
-                        {editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.subStrand} onChange={e => handleEditRow(i, 'subStrand', e.target.value)} /> : r.subStrand}
-                      </td>
-                      <td className="border border-black p-2 whitespace-pre-wrap leading-relaxed text-[8px]">
-                        {editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px] min-h-[60px]" value={r.learningOutcomes} onChange={e => handleEditRow(i, 'learningOutcomes', e.target.value)} /> : r.learningOutcomes}
-                      </td>
-                      <td className="border border-black p-2 whitespace-pre-wrap leading-relaxed text-[8px]">
-                        {editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px] min-h-[60px]" value={r.teachingExperiences} onChange={e => handleEditRow(i, 'teachingExperiences', e.target.value)} /> : r.teachingExperiences}
-                      </td>
-                      <td className="border border-black p-2 font-bold underline whitespace-pre-wrap text-[8px] italic">
-                        {editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.learningResources} onChange={e => handleEditRow(i, 'learningResources', e.target.value)} /> : r.learningResources}
-                      </td>
-                      <td className="border border-black p-2 whitespace-pre-wrap text-[8px]">
-                        {editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.assessmentMethods} onChange={e => handleEditRow(i, 'assessmentMethods', e.target.value)} /> : r.assessmentMethods}
-                      </td>
-                      <td className="border border-black p-2">
-                        {editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.reflection} onChange={e => handleEditRow(i, 'reflection', e.target.value)} /> : r.reflection}
-                      </td>
+                      <td className="border border-black p-2 font-black italic uppercase leading-tight">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.strand} onChange={e => handleEditRow(i, 'strand', e.target.value)} /> : r.strand}</td>
+                      <td className="border border-black p-2 leading-tight">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.subStrand} onChange={e => handleEditRow(i, 'subStrand', e.target.value)} /> : r.subStrand}</td>
+                      <td className="border border-black p-2 text-[8px]">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.learningOutcomes} onChange={e => handleEditRow(i, 'learningOutcomes', e.target.value)} /> : r.learningOutcomes}</td>
+                      <td className="border border-black p-2 text-[8px]">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.teachingExperiences} onChange={e => handleEditRow(i, 'teachingExperiences', e.target.value)} /> : r.teachingExperiences}</td>
+                      <td className="border border-black p-2 text-[8px] font-bold italic">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.learningResources} onChange={e => handleEditRow(i, 'learningResources', e.target.value)} /> : r.learningResources}</td>
+                      <td className="border border-black p-2 text-[8px]">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.assessmentMethods} onChange={e => handleEditRow(i, 'assessmentMethods', e.target.value)} /> : r.assessmentMethods}</td>
+                      <td className="border border-black p-2">{editingIndex === i ? <textarea className="w-full bg-slate-100 p-1 text-[8px]" value={r.reflection} onChange={e => handleEditRow(i, 'reflection', e.target.value)} /> : r.reflection}</td>
                     </tr>
                   ))}
                 </tbody>
