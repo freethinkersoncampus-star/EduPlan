@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -12,29 +13,29 @@ import { LessonSlot, UserProfile, KnowledgeDocument, SOWRow, SavedSOW, SavedLess
 
 const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
   // PRE-PRIMARY
-  { id: 'kicd-pp-lang', title: 'PP1-PP2: Language Activities Design', content: 'Focus: Pre-reading, pre-writing, listening and speaking skills. Competencies: Communication and Collaboration.', type: 'KICD', size: '2.1 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'kicd-pp-math', title: 'PP1-PP2: Mathematical Activities Design', content: 'Focus: Classification, number recognition, simple patterns, and measurement activities.', type: 'KICD', size: '1.8 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
-  
-  // LOWER PRIMARY
-  { id: 'kicd-lp-eng', title: 'Grade 1-3: English Language Design', content: 'Rationalized Focus: Literacy, grammar foundation, and creative writing. Focus on core competencies.', type: 'KICD', size: '3.4 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'kicd-lp-env', title: 'Grade 1-3: Environmental Activities Design', content: 'Social and natural environment, health, safety and nutrition integrated into daily experiences.', type: 'KICD', size: '2.9 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'pp-lang', title: 'Language Activities (PP1-PP2)', content: 'KICD Design: Pre-reading, listening, and speaking skills for early learners.', type: 'KICD', size: '2.1 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'pp-math', title: 'Mathematical Activities (PP1-PP2)', content: 'KICD Design: Classification, number recognition, and simple pattern awareness.', type: 'KICD', size: '1.9 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'pp-env', title: 'Environmental Activities (PP1-PP2)', content: 'KICD Design: Exploration of the immediate natural and social environment.', type: 'KICD', size: '2.0 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
 
-  // UPPER PRIMARY
-  { id: 'kicd-up-science', title: 'Grade 4-6: Science & Technology Design', content: 'Key Strands: Living things, the environment, matter, energy, and digital literacy application.', type: 'KICD', size: '4.2 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'kicd-up-agri', title: 'Grade 4-6: Agriculture & Nutrition Design', content: 'Integrated subject covering soil, crop production, animal rearing, and basic human nutrition.', type: 'KICD', size: '3.8 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+  // LOWER PRIMARY (Grade 1-3)
+  { id: 'lp-literacy', title: 'Literacy (Grade 1-3)', content: 'Rationalized Design: Foundational reading and writing in English and Kiswahili.', type: 'KICD', size: '3.1 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'lp-math', title: 'Mathematics (Grade 1-3)', content: 'Rationalized Design: Operations, measurement, and geometry foundations.', type: 'KICD', size: '3.4 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'lp-hygiene', title: 'Hygiene and Nutrition (Grade 1-3)', content: 'Rationalized Design: Healthy living habits and basic nutrition for young learners.', type: 'KICD', size: '2.8 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
 
-  // JUNIOR SCHOOL
-  { id: 'kicd-js-intsci', title: 'Grade 7-9: Integrated Science Design', content: 'Rationalized: Physics, Chemistry, and Biology combined with emphasis on inquiry-based learning.', type: 'KICD', size: '5.1 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'kicd-js-pretech', title: 'Grade 7-9: Pre-Technical Studies Design', content: 'Foundations of Engineering, Woodwork, Metalwork, and Electronics. Focus on career pathways.', type: 'KICD', size: '6.2 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'kicd-js-creative', title: 'Grade 7-9: Creative Arts & Sports Design', content: 'Integrated approach to Art, Music, Theatre, and Physical Education for holistic development.', type: 'KICD', size: '4.9 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  // UPPER PRIMARY (Grade 4-6)
+  { id: 'up-science', title: 'Science & Technology (Grade 4-6)', content: 'Rationalized Design: Inquiry-based exploration of biological and physical science concepts.', type: 'KICD', size: '4.5 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'up-agri', title: 'Agriculture & Nutrition (Grade 4-6)', content: 'Rationalized Design: Integrated approach to farming practices and human nutrition.', type: 'KICD', size: '4.1 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'up-social', title: 'Social Studies (Grade 4-6)', content: 'Rationalized Design: Understanding community, history, and geographical environment.', type: 'KICD', size: '3.9 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
 
-  // SENIOR SCHOOL
-  { id: 'kicd-ss-stem', title: 'Grade 10-12: STEM Pathway Framework', content: 'Specialized focus on Pure Sciences, Applied Sciences, Mathematics, and Technical Studies.', type: 'KICD', size: '7.5 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'kicd-ss-arts', title: 'Grade 10-12: Arts & Sports Science Pathway', content: 'Focus on Performing Arts, Visual Arts, and Sports Science careers and industry integration.', type: 'KICD', size: '6.8 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'kicd-ss-social', title: 'Grade 10-12: Social Sciences Pathway', content: 'Humanities, Languages, and Business Studies. Focus on global citizenship and leadership.', type: 'KICD', size: '6.5 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true },
+  // JUNIOR SCHOOL (Grade 7-9)
+  { id: 'js-int-science', title: 'Integrated Science (Grade 7-9)', content: 'Rationalized Design: Combined Physics, Chemistry, and Biology for technical foundation.', type: 'KICD', size: '5.2 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'js-pre-tech', title: 'Pre-Technical Studies (Grade 7-9)', content: 'Rationalized Design: Engineering, woodwork, and metalwork foundations.', type: 'KICD', size: '6.4 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'js-bus-studies', title: 'Business Studies (Grade 7-9)', content: 'Rationalized Design: Entrepreneurship, financial literacy, and trade basics.', type: 'KICD', size: '4.8 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
 
-  // GENERAL FRAMEWORK
-  { id: 'kicd-core-comp', title: 'Kenya National Curriculum Framework (2024)', content: 'The overarching document for CBE implementation. Outlines 7 core competencies and values.', type: 'KICD', size: '15.2 MB', date: '2024', category: 'Framework', isActiveContext: true, isSystemDoc: true }
+  // SENIOR SCHOOL (Grade 10-12)
+  { id: 'ss-pathway-stem', title: 'STEM Pathway: Pure Sciences (G10-12)', content: 'KICD Senior School Design: Specialized Physics, Chemistry, and Biology designs.', type: 'KICD', size: '7.8 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'ss-pathway-arts', title: 'Arts & Sports Science Pathway (G10-12)', content: 'KICD Senior School Design: Performing Arts, Visual Arts, and Physical Education specialization.', type: 'KICD', size: '7.2 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'ss-pathway-social', title: 'Social Sciences Pathway (G10-12)', content: 'KICD Senior School Design: Humanities, Languages, and Global Citizenship focus.', type: 'KICD', size: '6.9 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true }
 ];
 
 const LOCAL_STORAGE_KEY = 'eduplan_backup_data';

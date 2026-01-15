@@ -2,8 +2,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { SOWRow, LessonPlan } from "../types";
 
-// Helper to ensure we have a fresh client with the latest environment variable
-// Directly uses process.env.API_KEY as per GenAI SDK guidelines
 const getAIClient = () => {
   if (!process.env.API_KEY) {
     throw new Error("Gemini API Key is missing. Please check your environment variables.");
@@ -11,11 +9,21 @@ const getAIClient = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
-// Helper to clean JSON strings from common model formatting errors
 const cleanJsonString = (str: string): string => {
-  // Remove markdown code blocks if present
-  let cleaned = str.replace(/```json/g, "").replace(/```/g, "").trim();
-  return cleaned;
+  // Robust extraction: find the first '[' or '{' and the last matching closing character
+  const firstArray = str.indexOf('[');
+  const lastArray = str.lastIndexOf(']');
+  const firstObject = str.indexOf('{');
+  const lastObject = str.lastIndexOf('}');
+
+  if (firstArray !== -1 && lastArray !== -1 && (firstObject === -1 || firstArray < firstObject)) {
+    return str.substring(firstArray, lastArray + 1);
+  }
+  if (firstObject !== -1 && lastObject !== -1) {
+    return str.substring(firstObject, lastObject + 1);
+  }
+  
+  return str.replace(/```json/g, "").replace(/```/g, "").trim();
 };
 
 export const generateSOW = async (
@@ -28,7 +36,7 @@ export const generateSOW = async (
   try {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: `
       ${knowledgeContext ? `KICD OFFICIAL REFERENCE MATERIALS: \n${knowledgeContext}\n\n` : ''}
       Generate a CBE-compliant Rationalized Scheme of Work for: ${subject}, Level: ${grade}, Term: ${term}.
@@ -45,8 +53,7 @@ export const generateSOW = async (
       RETURN A VALID JSON ARRAY ONLY.
       `,
       config: {
-        // Move expert persona to systemInstruction for better model steering
-        systemInstruction: "ACT AS A KICD CURRICULUM SPECIALIST. You are an expert in the Kenyan Competency Based Education (CBE) system.",
+        systemInstruction: "ACT AS A KICD CURRICULUM SPECIALIST. You are an expert in the Kenyan Competency Based Education (CBE) system. Ensure all outputs are strictly formatted as JSON.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -92,7 +99,7 @@ export const generateLessonPlan = async (
   try {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview', 
+      model: 'gemini-3-flash-preview', 
       contents: `
       ${knowledgeContext ? `REFERENCE MATERIALS: \n${knowledgeContext}\n\n` : ''}
       GENERATE A KENYAN CBE (COMPETENCY BASED EDUCATION) LESSON PLAN.
@@ -114,8 +121,7 @@ export const generateLessonPlan = async (
       5. Extended Activities: Community Service Learning (CSL) or home projects.
       `,
       config: {
-        // Use systemInstruction for defining the specialized persona
-        systemInstruction: "ACT AS A KICD PEDAGOGICAL EXPERT. You specialize in creating highly engaging, CBE-aligned lesson plans for Kenyan primary and junior schools.",
+        systemInstruction: "ACT AS A KICD PEDAGOGICAL EXPERT. Create highly engaging, CBE-aligned lesson plans for Kenyan primary and junior schools. Output must be valid JSON.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -182,18 +188,16 @@ export const generateLessonNotes = async (
   try {
     const ai = getAIClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3-flash-preview',
       contents: `
       ${knowledgeContext ? `OFFICIAL KICD BASE CONTENT: \n${knowledgeContext}\n\n` : ''}
       Subject: ${subject} Grade ${grade}. Topic: ${topic}.
-      Use Markdown with headers, bold text for keywords, and tables where applicable.`,
+      Write detailed study notes in Markdown format.`,
       config: {
-        // Provide the expert persona and task instructions via systemInstruction
-        systemInstruction: "WRITE COMPREHENSIVE STUDY NOTES for a Kenyan learner. You are a world-class educator known for making complex concepts simple and clear while maintaining academic rigor.",
+        systemInstruction: "WRITE COMPREHENSIVE STUDY NOTES for a Kenyan learner. You are a world-class educator. Use clear headers and formatting.",
       }
     });
 
-    // Access text property directly as per latest SDK guidelines
     return response.text || "Notes generation failed.";
   } catch (error) {
     console.error("Critical error in generateLessonNotes:", error);
