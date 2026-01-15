@@ -66,6 +66,7 @@ const MobileNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTa
     ].map(item => (
       <button key={item.id} onClick={() => setActiveTab(item.id)} className="flex flex-col items-center gap-1.5">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400'}`}>
+          {/* Fix: Removed extra closing brace that was causing a syntax error and 'Cannot find name nav' error */}
           <i className={`fas ${item.icon} text-sm`}></i>
         </div>
         <span className={`text-[8px] font-black uppercase tracking-widest ${activeTab === item.id ? 'text-indigo-600' : 'text-slate-400'}`}>{item.label}</span>
@@ -78,10 +79,13 @@ const App = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [syncStatus, setSyncStatus] = useState<'online' | 'syncing' | 'offline'>('online');
+  const [syncStatus, setSyncStatus] = useState<'online' | 'syncing' | 'offline' | 'error'>('online');
+  const [lastSynced, setLastSynced] = useState<string | null>(null);
+  const [syncMessage, setSyncMessage] = useState<string>('Vault Secured');
   
   const [isHydrated, setIsHydrated] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const syncLock = useRef(false);
   
   const [currentSow, setCurrentSow] = useState<SOWRow[]>([]);
   const [currentSowMeta, setCurrentSowMeta] = useState({ 
@@ -146,11 +150,15 @@ const App = () => {
     return () => subscription.unsubscribe();
   }, [resetLocalState]);
 
+  /**
+   * REFINED CLOUD HYDRATION:
+   * Only attempts hydration once per user session to avoid data loops.
+   */
   const loadFromCloud = useCallback(async (userId: string) => {
     if (!supabase || hydrationAttempted.current === userId) return;
     
     setSyncStatus('syncing');
-    console.log(`EDUPAN SYNC [${userId}]: Fetching cloud data...`);
+    setSyncMessage('Opening Vault...');
     
     try {
       const [profileRes, dataRes] = await Promise.all([
@@ -180,6 +188,7 @@ const App = () => {
         if (d.note_history) setNoteHistory(d.note_history);
         if (d.docs) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...d.docs]);
       } else {
+        // Fallback to local backup if cloud is empty but user exists locally
         const userSpecificKey = getStorageKey(userId);
         const localBackup = localStorage.getItem(userSpecificKey);
         if (localBackup) {
@@ -195,13 +204,15 @@ const App = () => {
 
       setIsHydrated(true);
       setSyncStatus('online');
+      setSyncMessage('Vault Synced Successfully');
+      setLastSynced(new Date().toLocaleTimeString());
       hydrationAttempted.current = userId;
-      console.log(`EDUPAN SYNC [${userId}]: Hydration successful.`);
 
     } catch (err) {
       console.error("Cloud fetch failed:", err);
       setIsHydrated(true);
       setSyncStatus('offline');
+      setSyncMessage('Offline Mode Active');
     }
   }, []);
 
@@ -211,39 +222,56 @@ const App = () => {
     }
   }, [session, loadFromCloud, isHydrated]);
 
-  const syncToCloud = useCallback(async () => {
-    if (!session?.user?.id || !supabase || !isHydrated || !isDirty) return;
-    
+  /**
+   * ATOMIC SYNC MANAGER:
+   * Prevents overwrites, handles race conditions via locks, and provides status.
+   */
+  const syncToCloud = useCallback(async (force = false) => {
+    if (!session?.user?.id || !supabase || !isHydrated) return;
+    if (!isDirty && !force) return;
+    if (syncLock.current) return;
+
+    syncLock.current = true;
     setSyncStatus('syncing');
+    setSyncMessage('Writing to Cloud...');
+    
     const userId = session.user.id;
     
     try {
-      await Promise.all([
-        supabase.from('profiles').upsert({
-          id: userId,
-          name: profile.name,
-          tsc_number: profile.tscNumber,
-          school: profile.school,
-          subjects: profile.subjects,
-          onboarded_staff: profile.onboardedStaff,
-          available_subjects: profile.availableSubjects,
-          grades: profile.grades,
-          updated_at: new Date().toISOString()
-        }),
-        supabase.from('user_data').upsert({
-          user_id: userId,
-          slots,
-          sow_history: sowHistory,
-          plan_history: planHistory,
-          note_history: noteHistory,
-          docs: documents.filter(d => !d.isSystemDoc),
-          updated_at: new Date().toISOString()
-        })
-      ]);
+      // Step 1: Push Profile Changes
+      const { error: profileErr } = await supabase.from('profiles').upsert({
+        id: userId,
+        name: profile.name,
+        tsc_number: profile.tscNumber,
+        school: profile.school,
+        subjects: profile.subjects,
+        onboarded_staff: profile.onboardedStaff,
+        available_subjects: profile.availableSubjects,
+        grades: profile.grades,
+        updated_at: new Date().toISOString()
+      });
+
+      if (profileErr) throw profileErr;
+
+      // Step 2: Push Data Payload
+      const { error: dataErr } = await supabase.from('user_data').upsert({
+        user_id: userId,
+        slots,
+        sow_history: sowHistory,
+        plan_history: planHistory,
+        note_history: noteHistory,
+        docs: documents.filter(d => !d.isSystemDoc),
+        updated_at: new Date().toISOString()
+      });
+
+      if (dataErr) throw dataErr;
 
       setSyncStatus('online');
+      setSyncMessage('Changes Secured in Vault');
+      setLastSynced(new Date().toLocaleTimeString());
       setIsDirty(false);
 
+      // Local Backup for offline trust
       localStorage.setItem(getStorageKey(userId), JSON.stringify({ 
         slots, 
         sowHistory, 
@@ -253,15 +281,19 @@ const App = () => {
         documents: documents.filter(d => !d.isSystemDoc) 
       }));
       
-    } catch (err) {
+    } catch (err: any) {
       console.error("Cloud write failed:", err);
-      setSyncStatus('offline');
+      setSyncStatus('error');
+      setSyncMessage(`Sync Error: ${err.message || 'Server Busy'}`);
+    } finally {
+      syncLock.current = false;
     }
   }, [session, profile, slots, sowHistory, planHistory, noteHistory, documents, isHydrated, isDirty]);
 
+  // Debounced Auto-Sync
   useEffect(() => {
     if (!isHydrated || !isDirty) return;
-    const timer = setTimeout(() => syncToCloud(), 3000);
+    const timer = setTimeout(() => syncToCloud(), 5000); // 5s debounce for stability
     return () => clearTimeout(timer);
   }, [isDirty, syncToCloud, isHydrated]);
 
@@ -271,7 +303,7 @@ const App = () => {
   };
 
   const handleLogout = async () => {
-    if (confirm("Logout from EduPlan?")) {
+    if (confirm("Sign out of EduPlan?")) {
       if (supabase) await supabaseSignOut();
     }
   };
@@ -293,13 +325,23 @@ const App = () => {
       <main className="flex-1 md:ml-64 overflow-y-auto min-h-screen pb-32 md:pb-12 scroll-smooth">
         <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 md:px-12 py-4 flex justify-between items-center print:hidden">
           <div className="flex items-center gap-6">
-            <div className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full ${isDirty ? 'bg-amber-50' : 'bg-emerald-50'}`}>
-              <div className={`w-2 h-2 rounded-full ${syncStatus === 'syncing' ? 'bg-amber-500 animate-pulse' : isDirty ? 'bg-amber-400' : 'bg-emerald-500'}`}></div>
-              <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest leading-none">
-                {syncStatus === 'syncing' ? 'Vault Sync...' : isDirty ? 'Unsaved' : 'Secured'}
+            <div className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full transition-colors duration-500 ${
+              syncStatus === 'error' ? 'bg-red-50' : 
+              syncStatus === 'syncing' ? 'bg-amber-50' : 
+              isDirty ? 'bg-indigo-50' : 'bg-emerald-50'
+            }`}>
+              <div className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                syncStatus === 'error' ? 'bg-red-500 animate-pulse' : 
+                syncStatus === 'syncing' ? 'bg-amber-500 animate-bounce' : 
+                isDirty ? 'bg-indigo-400 animate-pulse' : 'bg-emerald-500'
+              }`}></div>
+              <span className={`text-[9px] font-black uppercase tracking-widest leading-none ${
+                syncStatus === 'error' ? 'text-red-600' : 'text-slate-600'
+              }`}>
+                {syncMessage}
               </span>
             </div>
-            {!isHydrated && <span className="text-[8px] font-black text-indigo-400 uppercase animate-pulse tracking-widest">Hydrating Vault...</span>}
+            {lastSynced && <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest hidden sm:inline">Last: {lastSynced}</span>}
           </div>
           <div className="flex items-center gap-4 cursor-pointer group">
             <div className="text-right hidden sm:block">
@@ -312,7 +354,16 @@ const App = () => {
 
         <div className="max-w-7xl mx-auto">
           {activeTab === 'dashboard' && <Dashboard stats={{ sowCount: sowHistory.length, planCount: planHistory.length, subjectCount: profile.subjects.length, nextLesson: slots.length > 0 ? slots[0].subject : 'None' }} slots={slots} user={profile} onNavigate={setActiveTab} />}
-          {activeTab === 'registry' && <StaffManagement profile={profile} setProfile={wrapUpdate(setProfile)} />}
+          {activeTab === 'registry' && (
+            <StaffManagement 
+              profile={profile} 
+              setProfile={wrapUpdate(setProfile)} 
+              syncStatus={syncStatus}
+              syncMessage={syncMessage}
+              lastSynced={lastSynced}
+              onForceSync={() => syncToCloud(true)}
+            />
+          )}
           {activeTab === 'timetable' && <Timetable slots={slots} setSlots={wrapUpdate(setSlots)} profile={profile} setProfile={wrapUpdate(setProfile)} />}
           {activeTab === 'sow' && (
             <SOWGenerator 

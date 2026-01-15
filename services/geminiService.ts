@@ -61,8 +61,9 @@ export const generateSOW = async (
 ): Promise<SOWRow[]> => {
   return callWithRetry(async () => {
     const ai = getAIClient();
+    // Use gemini-3-flash-preview as per standard task recommendations for curriculum generation
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: `
       CONTEXT: ${knowledgeContext || 'KICD Rationalized Curriculum 2024/2025'}
       TASK: Generate a CBE Rationalized Scheme of Work for ${subject}, ${grade}, Term ${term}.
@@ -114,8 +115,9 @@ export const generateLessonPlan = async (
 ): Promise<LessonPlan> => {
   return callWithRetry(async () => {
     const ai = getAIClient();
+    // Use gemini-3-flash-preview for complex reasoning in lesson planning
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash', 
+      model: 'gemini-3-flash-preview', 
       contents: `
       SUBJECT: ${subject} | LEVEL: ${grade} | TOPIC: ${subStrand}
       CONTEXT: ${knowledgeContext || 'Standard KICD CBE'}
@@ -183,8 +185,9 @@ export const generateLessonNotes = async (
 ): Promise<string> => {
   return callWithRetry(async () => {
     const ai = getAIClient();
+    // Use gemini-3-flash-preview for efficient pedagogical note generation
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}. Generate detailed pedagogical study notes following Kenyan CBE guidelines. Use Markdown.`,
       config: {
         maxOutputTokens: 6000
