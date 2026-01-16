@@ -114,7 +114,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
   const handleGenerate = async () => {
     if (!formData.subject) return alert("Select a subject first.");
     if (lessonsPerWeek === 0) {
-      alert("No lessons found for this subject/grade in your timetable. Please setup your Timetable first.");
+      alert("Timetable Required: You haven't assigned any lessons for this subject in your timetable yet.");
       return;
     }
 
@@ -165,7 +165,16 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       setPersistedMeta(formData);
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Curriculum Architect is unavailable. Please try again shortly.");
+      const isQuota = err.message?.includes('429');
+      const isTruncated = err.message?.includes('incomplete') || err.message?.includes('large');
+      
+      if (isQuota) {
+        alert("AI QUOTA REACHED: The server is busy. Please try again in 60 seconds.");
+      } else if (isTruncated) {
+        alert("RESPONSE LIMIT: The generated curriculum was too large for a single response. Your results might be partial. Try clicking generate again to refill.");
+      } else {
+        alert(err.message || "Curriculum Architect is unavailable. Please try again shortly.");
+      }
     } finally {
       setLoading(false);
       setLoadingStatus('');
