@@ -7,7 +7,7 @@ import { SOWRow, LessonPlan } from "../types";
  */
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "qwen/qwen-turbo"; // High-speed, high-context model optimized for structured tasks
+const MODEL = "alibaba/qwen-turbo"; // High-speed, high-context model optimized for structured tasks
 
 /**
  * Utility to extract JSON from markdown code blocks if the AI wraps its response.
