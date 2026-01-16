@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -12,10 +11,27 @@ import { supabase, signOut as supabaseSignOut } from './services/supabase';
 import { LessonSlot, UserProfile, KnowledgeDocument, SOWRow, SavedSOW, SavedLessonPlan, SavedLessonNote } from './types';
 
 const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
+  // Pre-Primary
   { id: 'pp-lang', title: 'Language Activities', content: 'KICD Rationalized: Pre-reading, listening, and speaking skills for early learners.', type: 'KICD', size: '2.1 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
   { id: 'pp-math', title: 'Mathematical Activities', content: 'KICD Rationalized: Classification, number recognition, and simple pattern awareness.', type: 'KICD', size: '1.9 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
   { id: 'pp-env', title: 'Environmental Activities', content: 'KICD Rationalized: Cleanliness, safety, and social environment.', type: 'KICD', size: '2.4 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'js-is', title: 'Integrated Science', content: 'Rationalized: Biological, Physical and Chemical systems.', type: 'KICD', size: '5.8 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true }
+  
+  // Lower Primary
+  { id: 'lp-lit', title: 'English Literacy', content: 'CBE Lower Primary: Phonics, vocabulary, and basic sentence structures.', type: 'KICD', size: '3.2 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'lp-kisw', title: 'Kiswahili Shughuli', content: 'CBE Lower Primary: Kusikiliza, kuzungumza na kusoma kwa ufasaha.', type: 'KICD', size: '2.8 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+  
+  // Upper Primary
+  { id: 'up-sci', title: 'Science and Technology', content: 'CBE Upper Primary: Human body, plants, and digital literacy basics.', type: 'KICD', size: '4.5 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'up-agr', title: 'Agriculture & Nutrition', content: 'CBE Upper Primary: Crop production, soil health, and balanced diets.', type: 'KICD', size: '4.1 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
+  
+  // Junior School
+  { id: 'js-is', title: 'Integrated Science', content: 'Rationalized: Biological, Physical and Chemical systems for Junior School.', type: 'KICD', size: '5.8 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'js-math', title: 'Mathematics (Junior)', content: 'Rationalized: Algebra, Geometry, and Statistics for JS.', type: 'KICD', size: '5.2 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'js-ss', title: 'Social Studies', content: 'Rationalized: Geography, Citizenship, and History.', type: 'KICD', size: '4.9 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
+  
+  // Senior School
+  { id: 'ss-bio', title: 'Biology (Senior)', content: 'Rationalized: Genetics, Evolution, and Advanced Ecology.', type: 'KICD', size: '6.2 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true },
+  { id: 'ss-chem', title: 'Chemistry (Senior)', content: 'Rationalized: Stoichiometry, Organic Chemistry, and Energetics.', type: 'KICD', size: '6.5 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true }
 ];
 
 const getStorageKey = (userId: string) => `eduplan_vault_v2_${userId}`;
@@ -85,7 +101,6 @@ const App = () => {
 
       if (dataRes.data && Array.isArray(dataRes.data.slots)) {
         const rawSlots = dataRes.data.slots as any[];
-        // Look for the Hidden Storage Tunnel slot
         const storageSlot = rawSlots.find(s => s.subject === 'SYSTEM_INTERNAL_STORAGE');
         const timetableSlots = rawSlots.filter(s => s.subject !== 'SYSTEM_INTERNAL_STORAGE');
 
@@ -128,7 +143,6 @@ const App = () => {
     const userId = session.user.id;
     
     try {
-      // 1. Sync Profile (Working)
       await supabase.from('profiles').upsert({
         id: userId,
         name: profile.name,
@@ -141,7 +155,6 @@ const App = () => {
         updated_at: new Date().toISOString()
       });
 
-      // 2. Storage Tunneling: We bundle all documents into a hidden entry inside the working 'slots' column
       const storageSlot = {
         day: 'SYSTEM',
         startTime: '00:00',
@@ -161,7 +174,7 @@ const App = () => {
 
       const { error: dataErr } = await supabase.from('user_data').upsert({
         user_id: userId,
-        slots: transportSlots, // Saving everything into the one column we know works
+        slots: transportSlots,
         updated_at: new Date().toISOString()
       });
 
