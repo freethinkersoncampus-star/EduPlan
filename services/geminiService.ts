@@ -1,52 +1,34 @@
 
 import { SOWRow, LessonPlan } from "../types";
 
-/**
- * EDUPLAN AI SERVICE - POWERED BY OPENROUTER
- * Optimized for Long-Form Curriculum Generation.
- */
-
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "google/gemini-2.0-flash-001"; 
 
-/**
- * Robust JSON extraction with "Self-Repair" for truncated AI responses.
- */
 function extractJSON(text: string) {
   let cleaned = text.trim();
-  
-  // Try direct parse first
   try { return JSON.parse(cleaned); } catch (e) {}
 
-  // Try regex extraction
   const jsonMatch = cleaned.match(/```json\n([\s\S]*?)\n```/) || cleaned.match(/{[\s\S]*}/);
   let jsonString = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : cleaned;
 
   try {
     return JSON.parse(jsonString);
   } catch (e) {
-    // SELF-REPAIR: If the JSON is truncated, try to force close the brackets.
-    // This often happens with 12-week generations.
+    // Basic repair if closing brackets are missing
     try {
       let repaired = jsonString;
-      if (!repaired.endsWith('}')) {
-        // Count unclosed brackets
-        const openBraces = (repaired.match(/{/g) || []).length;
-        const closeBraces = (repaired.match(/}/g) || []).length;
-        const openBrackets = (repaired.match(/\[/g) || []).length;
-        const closeBrackets = (repaired.match(/\]/g) || []).length;
+      const openBraces = (repaired.match(/{/g) || []).length;
+      const closeBraces = (repaired.match(/}/g) || []).length;
+      const openBrackets = (repaired.match(/\[/g) || []).length;
+      const closeBrackets = (repaired.match(/\]/g) || []).length;
 
-        // Add missing array closer if needed
-        if (openBrackets > closeBrackets) repaired += ' ]';
-        // Add missing object closer
-        if (openBraces > closeBraces) repaired += ' }';
-        
-        return JSON.parse(repaired);
-      }
+      if (openBrackets > closeBrackets) repaired += ' ]';
+      if (openBraces > closeBraces) repaired += ' }';
+      return JSON.parse(repaired);
     } catch (innerE) {
-      console.error("Self-repair failed:", innerE);
+      console.error("JSON Repair failed", innerE);
     }
-    throw new Error("The curriculum data was too large and arrived incomplete. Try generating for fewer weeks or a shorter term.");
+    throw new Error("AI data integrity check failed. Retrying chunk...");
   }
 }
 
@@ -66,8 +48,7 @@ async function callOpenRouter(systemPrompt: string, userPrompt: string) {
         { role: "user", content: userPrompt } 
       ],
       response_format: { type: "json_object" },
-      // Set a higher limit for long curriculum tables
-      max_tokens: 4000 
+      max_tokens: 3000 
     })
   });
 
@@ -80,62 +61,57 @@ async function callOpenRouter(systemPrompt: string, userPrompt: string) {
   return data.choices[0].message.content;
 }
 
-async function callWithRetry<T>(fn: () => Promise<T>, retries = 2, delay = 2000): Promise<T> {
-  try {
-    return await fn();
-  } catch (error: any) {
-    const isRetryable = error?.message?.toLowerCase().includes('429') || 
-                        error?.message?.toLowerCase().includes('timeout') ||
-                        error?.message?.toLowerCase().includes('busy');
-    if (isRetryable && retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return callWithRetry(fn, retries - 1, delay * 1.5);
-    }
-    throw error;
+export const generateSOWChunk = async (
+  subject: string, 
+  grade: string, 
+  term: number,
+  startWeek: number,
+  endWeek: number,
+  lessonsPerWeek: number,
+  knowledgeContext?: string
+): Promise<SOWRow[]> => {
+  const systemPrompt = `You are a Senior KICD Curriculum Specialist. 
+  TASK: Generate a CBE Rationalized SOW for ${subject}, ${grade} for Weeks ${startWeek} to ${endWeek}.
+  
+  MANDATORY JSON SCHEMA:
+  {
+    "lessons": [
+      {
+        "week": number,
+        "lesson": number,
+        "strand": "Strand Name",
+        "subStrand": "Sub-Strand Name",
+        "learningOutcomes": "Measurable outcomes",
+        "teachingExperiences": "Step-by-step activities",
+        "keyInquiryQuestions": "1-2 questions",
+        "learningResources": "Resources",
+        "assessmentMethods": "Methods",
+        "reflection": "Brief pedagogical note"
+      }
+    ]
   }
-}
+
+  CRITICAL: You are generating only for weeks ${startWeek} to ${endWeek}. 
+  Provide exactly ${lessonsPerWeek} lessons for each week. Total lessons to generate: ${((endWeek - startWeek) + 1) * lessonsPerWeek}.`;
+
+  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TERM: ${term}.
+  RANGE: Weeks ${startWeek}-${endWeek}.
+  CONTEXT: ${knowledgeContext || 'KICD Rationalized'}`;
+
+  const content = await callOpenRouter(systemPrompt, userPrompt);
+  const parsed = extractJSON(content);
+  return (parsed.lessons || []) as SOWRow[];
+};
 
 export const generateSOW = async (
   subject: string, 
   grade: string, 
   term: number,
   lessonSlotsCount: number,
-  knowledgeContext?: string,
-  weekOffset: number = 1
+  knowledgeContext?: string
 ): Promise<SOWRow[]> => {
-  const systemPrompt = `You are a Senior KICD Curriculum Specialist. 
-  TASK: Generate a CBE Rationalized SOW for ${subject}, ${grade}.
-  STYLE: Be CONCISE and SURGICAL. Use short sentences (max 10 words per cell).
-  
-  SCHEMA:
-  {
-    "lessons": [
-      {
-        "week": number,
-        "lesson": number,
-        "strand": "Short Name",
-        "subStrand": "Short Name",
-        "learningOutcomes": "1-2 short outcomes",
-        "teachingExperiences": "2-3 quick activities",
-        "keyInquiryQuestions": "1 question",
-        "learningResources": "Resources list",
-        "assessmentMethods": "Methods",
-        "reflection": "Brief note"
-      }
-    ]
-  }
-
-  CRITICAL: Every field is REQUIRED. Do not leave any empty.`;
-
-  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TERM: ${term}.
-  GENERATE EXACTLY ${lessonSlotsCount} LESSONS.
-  CONTEXT: ${knowledgeContext || 'KICD Rationalized'}`;
-
-  return callWithRetry(async () => {
-    const content = await callOpenRouter(systemPrompt, userPrompt);
-    const parsed = extractJSON(content);
-    return (parsed.lessons || []) as SOWRow[];
-  });
+  // This is kept for backward compatibility if needed, but the component should call chunks.
+  throw new Error("Use generateSOWChunk for sequential generation.");
 };
 
 export const generateLessonPlan = async (
@@ -146,13 +122,10 @@ export const generateLessonPlan = async (
   schoolName: string,
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
-  const systemPrompt = `You are a KICD Consultant. Generate a detailed CBE Lesson Plan JSON.`;
+  const systemPrompt = `KICD Lesson Plan Specialist. Output detailed JSON following KICD schema.`;
   const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${subStrand}. SCHOOL: ${schoolName}`;
-
-  return callWithRetry(async () => {
-    const content = await callOpenRouter(systemPrompt, userPrompt);
-    return extractJSON(content) as LessonPlan;
-  });
+  const content = await callOpenRouter(systemPrompt, userPrompt);
+  return extractJSON(content) as LessonPlan;
 };
 
 export const generateLessonNotes = async (
@@ -162,24 +135,22 @@ export const generateLessonNotes = async (
   customContext?: string,
   knowledgeContext?: string
 ): Promise<string> => {
-  const systemPrompt = "Subject Teacher. Generate concise Markdown study notes with definitions and examples.";
+  const systemPrompt = "Subject Teacher. Generate concise Markdown study notes.";
   const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}.`;
 
-  return callWithRetry(async () => {
-    const response = await fetch(OPENROUTER_API_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.API_KEY}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": window.location.origin,
-        "X-Title": "EduPlan Pro"
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }]
-      })
-    });
-    const data = await response.json();
-    return data.choices[0].message.content;
+  const response = await fetch(OPENROUTER_API_URL, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.API_KEY}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": window.location.origin,
+      "X-Title": "EduPlan Pro"
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }]
+    })
   });
+  const data = await response.json();
+  return data.choices[0].message.content;
 };

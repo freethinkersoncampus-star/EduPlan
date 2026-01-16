@@ -1,7 +1,7 @@
 
 // Add React import for React.FC and React.MouseEvent types
 import React, { useState, useEffect, useMemo } from 'react';
-import { generateSOW } from '../services/geminiService';
+import { generateSOWChunk } from '../services/geminiService';
 import { exportSOWToDocx } from '../services/exportService';
 import { SOWRow, LessonSlot, SavedSOW, UserProfile } from '../types';
 
@@ -114,67 +114,87 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
   const handleGenerate = async () => {
     if (!formData.subject) return alert("Select a subject first.");
     if (lessonsPerWeek === 0) {
-      alert("Timetable Required: You haven't assigned any lessons for this subject in your timetable yet.");
+      alert("Timetable Check: No assigned periods found for this subject.");
       return;
     }
 
     setLoading(true);
-    setLoadingStatus('Architecting Term Curriculum (Weeks 1-12)...');
+    setPersistedSow([]); // Clear existing
     
     try {
-      const totalLessons = 12 * lessonsPerWeek;
-      const rawResult = await generateSOW(
-        formData.subject, 
-        formData.grade, 
-        formData.term, 
-        totalLessons, 
-        knowledgeContext, 
-        1
-      );
-      
-      const enriched: SOWRow[] = [];
-      let breakInserted = false;
+      const chunks = [
+        { start: 1, end: 4 },
+        { start: 5, end: 8 },
+        { start: 9, end: 12 }
+      ];
 
-      rawResult.forEach((row) => {
+      let allLessons: SOWRow[] = [];
+
+      for (const chunk of chunks) {
+        setLoadingStatus(`Architecting Weeks ${chunk.start}-${chunk.end}...`);
+        
+        // Retry logic for each chunk
+        let retries = 0;
+        let chunkResult: SOWRow[] = [];
+        
+        while (retries < 2) {
+          try {
+            chunkResult = await generateSOWChunk(
+              formData.subject,
+              formData.grade,
+              formData.term,
+              chunk.start,
+              chunk.end,
+              lessonsPerWeek,
+              knowledgeContext
+            );
+            break; 
+          } catch (e) {
+            retries++;
+            if (retries === 2) throw e;
+            setLoadingStatus(`Sync Issue. Retrying Weeks ${chunk.start}-${chunk.end}...`);
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        }
+
+        allLessons = [...allLessons, ...chunkResult];
+        
+        // Intermediary update so user sees progress
+        const enriched: SOWRow[] = [];
+        allLessons.forEach((row) => {
+          enriched.push({ 
+            ...row, 
+            isCompleted: false,
+            // Re-offset if we pass the half-term break (Week 7)
+            week: row.week >= 7 ? row.week + 1 : row.week 
+          });
+        });
+        
+        setPersistedSow(calculateDatesFromTimetable(enriched));
+      }
+
+      // Final processing: Insert Break
+      const finalSow: SOWRow[] = [];
+      let breakInserted = false;
+      allLessons.forEach((row) => {
         if (row.week === 7 && !breakInserted) {
-          enriched.push({
-            week: 7, 
-            lesson: 0, 
-            strand: 'HALF TERM BREAK', 
-            subStrand: '-', 
-            learningOutcomes: 'Academic Review & Assessment', 
-            teachingExperiences: 'Learner reflection and remedial activities', 
-            keyInquiryQuestions: '-', 
-            learningResources: '-', 
-            assessmentMethods: '-', 
-            reflection: '-', 
-            isBreak: true
+          finalSow.push({
+            week: 7, lesson: 0, strand: 'HALF TERM BREAK', subStrand: '-', 
+            learningOutcomes: 'Assessment & Reflection', teachingExperiences: 'Review',
+            keyInquiryQuestions: '-', learningResources: '-', assessmentMethods: '-', reflection: '-', isBreak: true
           });
           breakInserted = true;
         }
-        
-        enriched.push({ 
-          ...row, 
-          isCompleted: false, 
-          week: row.week >= 7 ? row.week + 1 : row.week 
-        });
+        finalSow.push({ ...row, isCompleted: false, week: row.week >= 7 ? row.week + 1 : row.week });
       });
 
-      const datedSow = calculateDatesFromTimetable(enriched);
+      const datedSow = calculateDatesFromTimetable(finalSow);
       setPersistedSow(datedSow);
       setPersistedMeta(formData);
+      
     } catch (err: any) {
       console.error(err);
-      const isQuota = err.message?.includes('429');
-      const isTruncated = err.message?.includes('incomplete') || err.message?.includes('large');
-      
-      if (isQuota) {
-        alert("AI QUOTA REACHED: The server is busy. Please try again in 60 seconds.");
-      } else if (isTruncated) {
-        alert("RESPONSE LIMIT: The generated curriculum was too large for a single response. Your results might be partial. Try clicking generate again to refill.");
-      } else {
-        alert(err.message || "Curriculum Architect is unavailable. Please try again shortly.");
-      }
+      alert("Vault Sync Interrupted: " + (err.message || "Please check your internet and try again."));
     } finally {
       setLoading(false);
       setLoadingStatus('');
@@ -210,7 +230,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
           <div>
             <h2 className="text-2xl md:text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none text-black">SOW Architect</h2>
-            <p className="text-[9px] text-slate-400 font-bold tracking-[0.2em] mt-1.5 uppercase">KICD Rationalized Engine</p>
+            <p className="text-[9px] text-slate-400 font-bold tracking-[0.2em] mt-1.5 uppercase">Sequential CBE Pipeline</p>
           </div>
           <button onClick={() => setShowLibrary(!showLibrary)} className="w-full sm:w-auto text-[10px] font-black text-indigo-600 bg-indigo-50 px-6 py-3 rounded-xl uppercase tracking-widest hover:bg-indigo-100 transition">
             {showLibrary ? "← CONFIG" : `SOW ARCHIVE (${history.length})`}
@@ -249,27 +269,8 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Term Start</label>
-                <input type="date" className="w-full border-2 border-white p-3.5 rounded-xl bg-white font-black text-[10px]" value={formData.termStart} onChange={e => setFormData({...formData, termStart: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Half Term Start</label>
-                <input type="date" className="w-full border-2 border-white p-3.5 rounded-xl bg-white font-black text-[10px]" value={formData.halfTermStart} onChange={e => setFormData({...formData, halfTermStart: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Half Term End</label>
-                <input type="date" className="w-full border-2 border-white p-3.5 rounded-xl bg-white font-black text-[10px]" value={formData.halfTermEnd} onChange={e => setFormData({...formData, halfTermEnd: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Term End</label>
-                <input type="date" className="w-full border-2 border-white p-3.5 rounded-xl bg-white font-black text-[10px]" value={formData.termEnd} onChange={e => setFormData({...formData, termEnd: e.target.value})} />
-              </div>
-            </div>
-
             <button onClick={handleGenerate} disabled={loading || !formData.subject || lessonsPerWeek === 0} className="w-full bg-indigo-600 text-white py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl hover:bg-indigo-700 transition disabled:opacity-30">
-               {loading ? `ARCHITECTING... ${loadingStatus}` : "CONSTRUCT KICD SCHEME"}
+               {loading ? `ARCHITECTING... ${loadingStatus}` : "CONSTRUCT KICD SCHEME (SEQUENTIAL)"}
             </button>
           </div>
         )}
@@ -294,9 +295,9 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
         <div className="space-y-6 animate-in fade-in duration-500">
           <div className="bg-white p-4 md:p-6 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4 md:gap-8 print:hidden">
             <div className="flex-1 w-full">
-               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Completion: {coverageStats.percentage}%</span>
+               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Architecting: {persistedSow.length} Rows Generated</span>
                <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                  <div className="h-full bg-indigo-500 transition-all duration-700" style={{ width: `${coverageStats.percentage}%` }}></div>
+                  <div className="h-full bg-indigo-500 transition-all duration-700" style={{ width: `${(persistedSow.length / (12 * lessonsPerWeek)) * 100}%` }}></div>
                </div>
             </div>
             <div className="flex gap-3 w-full md:w-auto">
