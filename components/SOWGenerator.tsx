@@ -92,13 +92,11 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     return enrichedSow.map(row => {
       if (row.isBreak) return row;
       
-      // FIX: Ensure index is never negative (handles Lesson 0 or 1-based index)
       const rawIdx = (row.lesson - 1) % myLessons.length;
       const lessonInWeekIndex = rawIdx < 0 ? rawIdx + myLessons.length : rawIdx;
       
       const lessonDay = myLessons[lessonInWeekIndex];
       
-      // SAFETY GUARD: If lessonDay is still undefined, return row as is to prevent crash
       if (!lessonDay || !lessonDay.day) return row;
 
       const date = new Date(startDate);
@@ -167,12 +165,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       setPersistedMeta(formData);
     } catch (err: any) {
       console.error(err);
-      const isQuota = err.message?.includes('429') || err.message?.includes('quota');
-      if (isQuota) {
-        alert("AI QUOTA REACHED: The server is busy. Your request has been queued. Please wait 1 minute and click generate again.");
-      } else {
-        alert(err.message || "Curriculum Architect is unavailable. Please try again shortly.");
-      }
+      alert(err.message || "Curriculum Architect is unavailable. Please try again shortly.");
     } finally {
       setLoading(false);
       setLoadingStatus('');
@@ -266,7 +259,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
               </div>
             </div>
 
-            <button onClick={handleGenerate} disabled={loading || !formData.subject || lessonsPerWeek === 0} className="w-full bg-indigo-600 text-white py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.25em] shadow-2xl hover:bg-indigo-700 transition disabled:opacity-30">
+            <button onClick={handleGenerate} disabled={loading || !formData.subject || lessonsPerWeek === 0} className="w-full bg-indigo-600 text-white py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl hover:bg-indigo-700 transition disabled:opacity-30">
                {loading ? `ARCHITECTING... ${loadingStatus}` : "CONSTRUCT KICD SCHEME"}
             </button>
           </div>
@@ -348,13 +341,13 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                       <td className="border border-black p-3 text-center font-black">{r.isBreak ? '-' : r.week}</td>
                       <td className="border border-black p-3 text-center font-bold">{r.isBreak ? '-' : r.lesson}</td>
                       <td className="border border-black p-3 text-center font-black text-indigo-800">{r.date || '-'}</td>
-                      <td className="border border-black p-3">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.strand} onChange={e => handleEditRow(i, 'strand', e.target.value)} /> : r.strand}</td>
-                      <td className="border border-black p-3">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.subStrand} onChange={e => handleEditRow(i, 'subStrand', e.target.value)} /> : r.subStrand}</td>
-                      <td className="border border-black p-3">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.learningOutcomes} onChange={e => handleEditRow(i, 'learningOutcomes', e.target.value)} /> : r.learningOutcomes}</td>
-                      <td className="border border-black p-3">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.teachingExperiences} onChange={e => handleEditRow(i, 'teachingExperiences', e.target.value)} /> : r.learningOutcomes}</td>
-                      <td className="border border-black p-3">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.learningResources} onChange={e => handleEditRow(i, 'learningResources', e.target.value)} /> : r.learningResources}</td>
-                      <td className="border border-black p-3">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.assessmentMethods} onChange={e => handleEditRow(i, 'assessmentMethods', e.target.value)} /> : r.assessmentMethods}</td>
-                      <td className="border border-black p-3">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.reflection} onChange={e => handleEditRow(i, 'reflection', e.target.value)} /> : r.reflection}</td>
+                      <td className="border border-black p-3 font-medium">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.strand} onChange={e => handleEditRow(i, 'strand', e.target.value)} /> : (r.strand || '—')}</td>
+                      <td className="border border-black p-3 font-medium">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.subStrand} onChange={e => handleEditRow(i, 'subStrand', e.target.value)} /> : (r.subStrand || '—')}</td>
+                      <td className="border border-black p-3">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.learningOutcomes} onChange={e => handleEditRow(i, 'learningOutcomes', e.target.value)} /> : (r.learningOutcomes || '—')}</td>
+                      <td className="border border-black p-3">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.teachingExperiences} onChange={e => handleEditRow(i, 'teachingExperiences', e.target.value)} /> : (r.teachingExperiences || '—')}</td>
+                      <td className="border border-black p-3">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.learningResources} onChange={e => handleEditRow(i, 'learningResources', e.target.value)} /> : (r.learningResources || '—')}</td>
+                      <td className="border border-black p-3">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.assessmentMethods} onChange={e => handleEditRow(i, 'assessmentMethods', e.target.value)} /> : (r.assessmentMethods || '—')}</td>
+                      <td className="border border-black p-3">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.reflection} onChange={e => handleEditRow(i, 'reflection', e.target.value)} /> : (r.reflection || '—')}</td>
                     </tr>
                   ))}
                 </tbody>

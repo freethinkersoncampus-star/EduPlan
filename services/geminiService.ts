@@ -3,14 +3,14 @@ import { SOWRow, LessonPlan } from "../types";
 
 /**
  * EDUPLAN AI SERVICE - POWERED BY OPENROUTER
- * Using fetch directly to allow sk-or-... keys.
+ * Strict Instruction Engine for KICD/CBE Rationalized Content.
  */
 
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL = "google/gemini-2.0-flash-001"; 
 
 /**
- * Utility to extract JSON from markdown code blocks if the AI wraps its response.
+ * Robust JSON extraction to handle model chatter or markdown formatting.
  */
 function extractJSON(text: string) {
   try {
@@ -28,9 +28,6 @@ function extractJSON(text: string) {
   }
 }
 
-/**
- * Core fetch function for OpenRouter
- */
 async function callOpenRouter(systemPrompt: string, userPrompt: string) {
   const response = await fetch(OPENROUTER_API_URL, {
     method: "POST",
@@ -82,12 +79,38 @@ export const generateSOW = async (
   knowledgeContext?: string,
   weekOffset: number = 1
 ): Promise<SOWRow[]> => {
-  const systemPrompt = `You are a KICD Curriculum Specialist. 
-  Generate a CBE Rationalized Scheme of Work for ${subject}, ${grade}, Term ${term}.
-  OUTPUT FORMAT: Return a JSON object with a 'lessons' key containing exactly ${lessonSlotsCount} objects.`;
+  const systemPrompt = `You are a Senior KICD Curriculum Specialist. 
+  TASK: Generate a CBE Rationalized Scheme of Work for ${subject}, ${grade}, Term ${term}.
+  
+  MANDATORY JSON SCHEMA:
+  {
+    "lessons": [
+      {
+        "week": number,
+        "lesson": number,
+        "strand": "Detailed Name of the Main Strand",
+        "subStrand": "Detailed Specific Sub-Strand Name",
+        "learningOutcomes": "Clear, measurable outcomes (e.g., 'By the end of the lesson, the learner should...')",
+        "teachingExperiences": "Step-by-step learner activities and teaching methods",
+        "keyInquiryQuestions": "2-3 thought-provoking questions for the lesson",
+        "learningResources": "Textbooks, digital tools, and physical materials",
+        "assessmentMethods": "Observations, oral questions, written work, etc.",
+        "reflection": "Anticipated learner progress and pedagogical strategy"
+      }
+    ]
+  }
 
-  const userPrompt = `CONTEXT: ${knowledgeContext || 'KICD Rationalized Curriculum 2024/2025'}
-  TASK: Generate exactly ${lessonSlotsCount} lessons starting from Week ${weekOffset}.`;
+  RULES:
+  1. EVERY field must be populated with detailed educational content.
+  2. Follow the KICD 2024/2025 Rationalized Curriculum guidelines strictly.
+  3. Ensure the 'lessons' key is present.
+  4. Generate exactly ${lessonSlotsCount} lesson entries.`;
+
+  const userPrompt = `CONTEXT: ${knowledgeContext || 'KICD Rationalized Curriculum'}
+  GRADE: ${grade}
+  SUBJECT: ${subject}
+  STARTING WEEK: ${weekOffset}
+  TOTAL LESSONS TO ARCHITECT: ${lessonSlotsCount}`;
 
   return callWithRetry(async () => {
     const content = await callOpenRouter(systemPrompt, userPrompt);
@@ -105,11 +128,37 @@ export const generateLessonPlan = async (
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
   const systemPrompt = `You are a KICD Consultant specializing in CBE Lesson Planning. 
-  Output a detailed JSON object following the pedagogical schema for KICD.`;
+  Output a detailed JSON object following the pedagogical schema for KICD.
+  
+  MANDATORY SCHEMA:
+  {
+    "school": "${schoolName}",
+    "year": 2025,
+    "term": "I",
+    "textbook": "Standard approved text",
+    "week": 1,
+    "lessonNumber": 1,
+    "learningArea": "${subject}",
+    "grade": "${grade}",
+    "date": "",
+    "time": "",
+    "roll": "",
+    "strand": "${strand}",
+    "subStrand": "${subStrand}",
+    "keyInquiryQuestions": ["?", "?"],
+    "outcomes": ["...", "..."],
+    "learningResources": ["...", "..."],
+    "introduction": ["Step 1", "Step 2"],
+    "lessonDevelopment": [
+      { "title": "Step 1: Activity Name", "duration": "10 mins", "content": ["Step a", "Step b"] }
+    ],
+    "conclusion": ["Summary", "Exit task"],
+    "extendedActivities": ["Homework/Project"],
+    "teacherSelfEvaluation": ""
+  }`;
 
   const userPrompt = `SUBJECT: ${subject} | LEVEL: ${grade} | TOPIC: ${subStrand}. 
-  CONTEXT: ${knowledgeContext || 'KICD CBE'}
-  SCHOOL: ${schoolName}`;
+  CONTEXT: ${knowledgeContext || 'KICD CBE'}`;
 
   return callWithRetry(async () => {
     const content = await callOpenRouter(systemPrompt, userPrompt);
@@ -124,6 +173,11 @@ export const generateLessonNotes = async (
   customContext?: string,
   knowledgeContext?: string
 ): Promise<string> => {
+  const systemPrompt = "You are a specialized subject teacher. Generate detailed, accurate study notes in Markdown format. Include definitions, examples, and tables.";
+  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}. 
+            KNOWLEDGE: ${knowledgeContext || 'Standard CBE'}
+            CUSTOM CONTEXT: ${customContext || 'None'}`;
+
   return callWithRetry(async () => {
     const response = await fetch(OPENROUTER_API_URL, {
       method: "POST",
@@ -136,13 +190,8 @@ export const generateLessonNotes = async (
       body: JSON.stringify({
         model: MODEL,
         messages: [
-          { role: "system", content: "You are a specialized subject teacher. Generate detailed, accurate study notes in Markdown format." },
-          { 
-            role: "user", 
-            content: `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}. 
-            KNOWLEDGE: ${knowledgeContext || 'Standard CBE'}
-            CUSTOM CONTEXT: ${customContext || 'None'}`
-          }
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
         ]
       })
     });
