@@ -18,7 +18,7 @@ const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
   
   // Lower Primary
   { id: 'lp-lit', title: 'English Literacy', content: 'CBE Lower Primary: Phonics, vocabulary, and basic sentence structures.', type: 'KICD', size: '3.2 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'lp-kisw', title: 'Kiswahili Shughuli', content: 'CBE Lower Primary: Kusikiliza, kuzungumza na kusoma kwa ufasaha.', type: 'KICD', size: '2.8 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
+  { id: 'lp-kisw', title: 'Kiswahili Shughuli', content: 'CBE Lower Primary: Kusikiliza, kuzungumza na kuzungumza kwa ufasaha.', type: 'KICD', size: '2.8 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
   
   // Upper Primary
   { id: 'up-sci', title: 'Science and Technology', content: 'CBE Upper Primary: Human body, plants, and digital literacy basics.', type: 'KICD', size: '4.5 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
@@ -40,6 +40,7 @@ const App = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'online' | 'syncing' | 'offline' | 'error'>('online');
   const [lastSynced, setLastSynced] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState<string>('Vault Secured');
@@ -210,28 +211,41 @@ const App = () => {
 
   return (
     <div className="flex min-h-screen bg-slate-50 flex-col md:flex-row font-inter">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} profile={profile} onLogout={handleLogout} />
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        profile={profile} 
+        onLogout={handleLogout} 
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
       <main className="flex-1 md:ml-64 overflow-y-auto min-h-screen pb-32 md:pb-12 scroll-smooth">
-        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 md:px-12 py-4 flex justify-between items-center print:hidden">
-          <div className="flex items-center gap-6">
-            <div className={`flex items-center gap-2.5 px-4 py-2 rounded-full shadow-sm transition-all duration-500 ${
+        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-4 md:px-12 py-4 flex justify-between items-center print:hidden">
+          <div className="flex items-center gap-3 md:gap-6">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden p-2 text-indigo-600 hover:bg-indigo-50 rounded-xl transition"
+            >
+              <i className="fas fa-bars text-lg"></i>
+            </button>
+            <div className={`flex items-center gap-2.5 px-3 md:px-4 py-2 rounded-full shadow-sm transition-all duration-500 ${
               syncStatus === 'error' ? 'bg-red-50 border border-red-100' : 
               syncStatus === 'syncing' ? 'bg-amber-50 border border-amber-100' : 
               'bg-emerald-50 border border-emerald-100'
             }`}>
               <div className={`w-2 h-2 rounded-full ${syncStatus === 'error' ? 'bg-red-500' : syncStatus === 'syncing' ? 'bg-amber-500 animate-bounce' : 'bg-emerald-500'}`}></div>
-              <span className={`text-[10px] font-black uppercase tracking-widest ${syncStatus === 'error' ? 'text-red-600' : 'text-slate-700'}`}>
+              <span className={`text-[8px] md:text-[10px] font-black uppercase tracking-widest ${syncStatus === 'error' ? 'text-red-600' : 'text-slate-700'}`}>
                 {syncMessage}
               </span>
             </div>
-            {lastSynced && <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest hidden sm:inline">Synced: {lastSynced}</span>}
+            {lastSynced && <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest hidden lg:inline">Synced: {lastSynced}</span>}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 md:gap-4">
              <div className="text-right hidden sm:block">
                 <p className="text-[11px] font-black text-slate-800 uppercase leading-none mb-1">{profile.name || 'Teacher'}</p>
                 <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none">{profile.school || 'EduPlan Pro'}</p>
              </div>
-             <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.id}`} className="w-10 h-10 rounded-xl border-2 border-indigo-50 shadow-sm" />
+             <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.id}`} className="w-8 h-8 md:w-10 md:h-10 rounded-xl border-2 border-indigo-50 shadow-sm" />
           </div>
         </header>
 

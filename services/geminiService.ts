@@ -12,7 +12,8 @@ function extractJSON(text: string) {
   const jsonMatch = cleaned.match(/```json\n([\s\S]*?)\n```/) || cleaned.match(/{[\s\S]*}/);
   let jsonString = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : cleaned;
   try { 
-    return JSON.parse(jsonString); 
+    const parsed = JSON.parse(jsonString);
+    return parsed;
   } catch (e) {
     console.error("JSON Parse failed", e);
     throw new Error("AI data integrity check failed. Please try again.");
@@ -37,13 +38,14 @@ async function callOpenRouter(systemPrompt: string, userPrompt: string, response
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      response_format: responseFormat ? { type: "json_object" } : undefined
+      response_format: responseFormat ? { type: "json_object" } : undefined,
+      temperature: 0.7
     })
   });
 
   if (!response.ok) {
     const errData = await response.json();
-    throw new Error(errData?.error?.message || "Connection to API failed. Please verify your API key in Vercel.");
+    throw new Error(errData?.error?.message || "Connection to API failed. Please verify your API key.");
   }
 
   const data = await response.json();
@@ -59,8 +61,18 @@ export const generateSOWChunk = async (
   lessonsPerWeek: number,
   knowledgeContext?: string
 ): Promise<SOWRow[]> => {
-  const systemPrompt = `You are a Senior KICD Curriculum Specialist. Generate a CBE Rationalized Schemes of Work (SOW). Return ONLY a JSON object with a "lessons" array. Context: ${knowledgeContext || 'Standard CBE'}`;
-  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TERM: ${term}. Weeks ${startWeek}-${endWeek}. ${lessonsPerWeek} lessons/wk. Provide detailed pedagogical entries.`;
+  const systemPrompt = `You are a Senior KICD Curriculum Specialist. 
+  TASK: Generate a high-fidelity, detailed CBE Rationalized Scheme of Work (SOW). 
+  RULES: 
+  1. DO NOT use placeholders like "-", "TBD", or empty strings.
+  2. PROVIDE rich, pedagogical content for EVERY field.
+  3. Return ONLY a valid JSON object with a "lessons" array. 
+  Context: ${knowledgeContext || 'Standard CBE'}`;
+
+  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TERM: ${term}. 
+  Weeks ${startWeek} through ${endWeek}. 
+  Lessons per week: ${lessonsPerWeek}. 
+  Populate the SOW with professional pedagogical entries for learning outcomes, experiences, and assessment.`;
 
   const textResponse = await callOpenRouter(systemPrompt, userPrompt, "json_object");
   const parsed = extractJSON(textResponse || '{}');
@@ -75,8 +87,17 @@ export const generateLessonPlan = async (
   schoolName: string,
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
-  const systemPrompt = `You are a Senior KICD CBE Pedagogy Expert. Generate a COMPLETE Lesson Plan in JSON format matching the standard Kenyan CBE schema. No placeholders. Context: ${knowledgeContext || 'Standard CBE'}`;
-  const userPrompt = `Architect a high-quality lesson for ${subject} Grade ${grade} on the topic of ${subStrand} (Strand: ${strand}). School: ${schoolName}.`;
+  const systemPrompt = `You are a Senior KICD CBE Pedagogy Expert. 
+  TASK: Architect a COMPLETE, HIGH-CONTENT Lesson Plan. 
+  RULES: 
+  1. No placeholders. Use specific activities, inquiry questions, and detailed steps.
+  2. Return ONLY JSON matching the requested schema. 
+  Context: ${knowledgeContext || 'Standard CBE'}`;
+
+  const userPrompt = `Detailed Lesson Plan for ${subject} Grade ${grade}. 
+  Strand: ${strand} | Sub-Strand: ${subStrand}. 
+  School: ${schoolName}. 
+  Ensure the "lessonDevelopment" steps are substantive and actionable.`;
 
   const textResponse = await callOpenRouter(systemPrompt, userPrompt, "json_object");
   return extractJSON(textResponse || '{}') as LessonPlan;
@@ -89,7 +110,10 @@ export const generateLessonNotes = async (
   customContext?: string,
   knowledgeContext?: string
 ): Promise<string> => {
-  const systemPrompt = `You are a Subject Matter Expert. Provide clear, detailed educational notes in Markdown format. Context: ${knowledgeContext || ''}`;
+  const systemPrompt = `You are a Subject Matter Expert. Provide clear, detailed educational notes in Markdown format. 
+  Structure the notes with headers, bullet points, and clear explanations. No placeholders. 
+  Context: ${knowledgeContext || ''}`;
+  
   const userPrompt = `Generate comprehensive Markdown study notes for ${subject} Grade ${grade} on the topic of ${topic}.`;
   
   return await callOpenRouter(systemPrompt, userPrompt);
