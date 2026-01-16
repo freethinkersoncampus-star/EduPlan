@@ -1,8 +1,5 @@
+import { GoogleGenAI, Type } from "@google/genai";
 import { SOWRow, LessonPlan } from "../types";
-
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-const API_KEY = process.env.API_KEY;
-const MODEL = "qwen/qwen-2.5-72b-instruct";
 
 /**
  * Robustly extracts JSON from AI-generated text blocks.
@@ -21,37 +18,8 @@ function extractJSON(text: string) {
 }
 
 /**
- * Generic fetcher for OpenRouter to handle the API connection correctly.
+ * Generates a Scheme of Work (SOW) chunk using Gemini 3.0 Pro.
  */
-async function callOpenRouter(systemPrompt: string, userPrompt: string, responseFormat?: string) {
-  const response = await fetch(OPENROUTER_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${API_KEY}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": window.location.origin,
-      "X-Title": "EduPlan CBC Master"
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      response_format: responseFormat ? { type: "json_object" } : undefined,
-      temperature: 0.7
-    })
-  });
-
-  if (!response.ok) {
-    const errData = await response.json();
-    throw new Error(errData?.error?.message || "Connection to API failed. Please verify your API key.");
-  }
-
-  const data = await response.json();
-  return data.choices[0].message.content;
-}
-
 export const generateSOWChunk = async (
   subject: string, 
   grade: string, 
@@ -61,24 +29,68 @@ export const generateSOWChunk = async (
   lessonsPerWeek: number,
   knowledgeContext?: string
 ): Promise<SOWRow[]> => {
-  const systemPrompt = `You are a Senior KICD Curriculum Specialist. 
-  TASK: Generate a high-fidelity, detailed CBE Rationalized Scheme of Work (SOW). 
-  RULES: 
-  1. DO NOT use placeholders like "-", "TBD", or empty strings.
-  2. PROVIDE rich, pedagogical content for EVERY field.
-  3. Return ONLY a valid JSON object with a "lessons" array. 
-  Context: ${knowledgeContext || 'Standard CBE'}`;
+  // Create a new instance right before the call to ensure the latest API Key is used
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: `SUBJECT: ${subject} | GRADE: ${grade} | TERM: ${term}. 
+      Weeks ${startWeek} through ${endWeek}. 
+      Lessons per week: ${lessonsPerWeek}. 
+      Populate the SOW with professional pedagogical entries for learning outcomes, experiences, and assessment.`,
+      config: {
+        systemInstruction: `You are a Senior KICD Curriculum Specialist. 
+        TASK: Generate a high-fidelity, detailed CBE Rationalized Scheme of Work (SOW). 
+        RULES: 
+        1. DO NOT use placeholders like "-", "TBD", or empty strings. 
+        2. PROVIDE rich, pedagogical content for EVERY field.
+        3. Return ONLY a valid JSON object with a "lessons" array. 
+        Context: ${knowledgeContext || 'Standard CBE'}`,
+        responseMimeType: "application/json",
+        // Increase reasoning depth for complex curriculum planning
+        thinkingConfig: { thinkingBudget: 4000 },
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            lessons: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  week: { type: Type.INTEGER },
+                  lesson: { type: Type.INTEGER },
+                  strand: { type: Type.STRING },
+                  subStrand: { type: Type.STRING },
+                  learningOutcomes: { type: Type.STRING },
+                  teachingExperiences: { type: Type.STRING },
+                  keyInquiryQuestions: { type: Type.STRING },
+                  learningResources: { type: Type.STRING },
+                  assessmentMethods: { type: Type.STRING },
+                  reflection: { type: Type.STRING }
+                },
+                required: ["week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences"]
+              }
+            }
+          },
+          required: ["lessons"]
+        }
+      }
+    });
 
-  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TERM: ${term}. 
-  Weeks ${startWeek} through ${endWeek}. 
-  Lessons per week: ${lessonsPerWeek}. 
-  Populate the SOW with professional pedagogical entries for learning outcomes, experiences, and assessment.`;
-
-  const textResponse = await callOpenRouter(systemPrompt, userPrompt, "json_object");
-  const parsed = extractJSON(textResponse || '{}');
-  return (parsed.lessons || []) as SOWRow[];
+    const parsed = JSON.parse(response.text || '{}');
+    return (parsed.lessons || []) as SOWRow[];
+  } catch (error: any) {
+    if (error.message?.includes("Requested entity was not found")) {
+      throw new Error("API_KEY_RESET_REQUIRED");
+    }
+    throw error;
+  }
 };
 
+/**
+ * Generates a high-content Lesson Plan using Gemini 3.0 Pro.
+ */
 export const generateLessonPlan = async (
   subject: string,
   grade: string,
@@ -87,22 +99,39 @@ export const generateLessonPlan = async (
   schoolName: string,
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
-  const systemPrompt = `You are a Senior KICD CBE Pedagogy Expert. 
-  TASK: Architect a COMPLETE, HIGH-CONTENT Lesson Plan. 
-  RULES: 
-  1. No placeholders. Use specific activities, inquiry questions, and detailed steps.
-  2. Return ONLY JSON matching the requested schema. 
-  Context: ${knowledgeContext || 'Standard CBE'}`;
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  const userPrompt = `Detailed Lesson Plan for ${subject} Grade ${grade}. 
-  Strand: ${strand} | Sub-Strand: ${subStrand}. 
-  School: ${schoolName}. 
-  Ensure the "lessonDevelopment" steps are substantive and actionable.`;
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: `Detailed Lesson Plan for ${subject} Grade ${grade}. 
+      Strand: ${strand} | Sub-Strand: ${subStrand}. 
+      School: ${schoolName}. 
+      Ensure the "lessonDevelopment" steps are substantive and actionable.`,
+      config: {
+        systemInstruction: `You are a Senior KICD CBE Pedagogy Expert. 
+        TASK: Architect a COMPLETE, HIGH-CONTENT Lesson Plan in JSON format. 
+        RULES: 
+        1. No placeholders. Use specific activities, inquiry questions, and detailed steps.
+        2. Return ONLY JSON matching the requested schema. 
+        Context: ${knowledgeContext || 'Standard CBE'}`,
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 2000 }
+      }
+    });
 
-  const textResponse = await callOpenRouter(systemPrompt, userPrompt, "json_object");
-  return extractJSON(textResponse || '{}') as LessonPlan;
+    return extractJSON(response.text || '{}') as LessonPlan;
+  } catch (error: any) {
+    if (error.message?.includes("Requested entity was not found")) {
+      throw new Error("API_KEY_RESET_REQUIRED");
+    }
+    throw error;
+  }
 };
 
+/**
+ * Generates educational notes in Markdown format using Gemini 3.0 Pro.
+ */
 export const generateLessonNotes = async (
   subject: string,
   grade: string,
@@ -110,11 +139,25 @@ export const generateLessonNotes = async (
   customContext?: string,
   knowledgeContext?: string
 ): Promise<string> => {
-  const systemPrompt = `You are a Subject Matter Expert. Provide clear, detailed educational notes in Markdown format. 
-  Structure the notes with headers, bullet points, and clear explanations. No placeholders. 
-  Context: ${knowledgeContext || ''}`;
-  
-  const userPrompt = `Generate comprehensive Markdown study notes for ${subject} Grade ${grade} on the topic of ${topic}.`;
-  
-  return await callOpenRouter(systemPrompt, userPrompt);
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: `Generate comprehensive Markdown study notes for ${subject} Grade ${grade} on the topic of ${topic}.`,
+      config: {
+        systemInstruction: `You are a Subject Matter Expert. Provide clear, detailed educational notes in Markdown format. 
+        Structure the notes with headers, bullet points, and clear explanations. No placeholders. 
+        Context: ${knowledgeContext || ''}`,
+        thinkingConfig: { thinkingBudget: 2000 }
+      }
+    });
+    
+    return response.text || "";
+  } catch (error: any) {
+    if (error.message?.includes("Requested entity was not found")) {
+      throw new Error("API_KEY_RESET_REQUIRED");
+    }
+    throw error;
+  }
 };

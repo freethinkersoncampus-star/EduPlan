@@ -1,4 +1,3 @@
-
 // Add React import for React.FC and React.MouseEvent types
 import React, { useState, useEffect, useMemo } from 'react';
 import { generateSOWChunk } from '../services/geminiService';
@@ -64,6 +63,8 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     ).length;
   }, [timetableSlots, formData.subject, formData.grade]);
 
+  const effectiveLessonsPerWeek = lessonsPerWeek > 0 ? lessonsPerWeek : 5;
+
   const coverageStats = useMemo(() => {
     const validLessons = persistedSow.filter(r => !r.isBreak);
     const total = validLessons.length;
@@ -114,11 +115,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
 
   const handleGenerate = async () => {
     if (!formData.subject) return alert("Select a subject first.");
-    if (lessonsPerWeek === 0) {
-      alert("Timetable Check: No assigned periods found for this subject.");
-      return;
-    }
-
+    
     setLoading(true);
     setPersistedSow([]); 
     
@@ -145,11 +142,18 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
               formData.term,
               chunk.start,
               chunk.end,
-              lessonsPerWeek,
+              effectiveLessonsPerWeek,
               knowledgeContext
             );
             break; 
-          } catch (e) {
+          } catch (e: any) {
+            if (e.message === "API_KEY_RESET_REQUIRED") {
+               if (window.aistudio?.openSelectKey) {
+                 alert("Your Professional AI Key needs re-authentication. Please select it again.");
+                 await window.aistudio.openSelectKey();
+                 continue; // Retry with new key
+               }
+            }
             retries++;
             if (retries === 2) throw e;
             setLoadingStatus(`Syncing Issue. Retrying Weeks ${chunk.start}-${chunk.end}...`);
@@ -195,7 +199,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
 
       const datedSow = calculateDatesFromTimetable(finalSow);
       
-      // Generation is a new entity until saved
       const newMeta = { ...formData, id: '' };
       setFormData(newMeta);
       setPersistedSow(datedSow);
@@ -213,7 +216,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
   const handleSaveSow = () => {
     if (persistedSow.length === 0) return;
     
-    // Check if we are updating an existing archive entry
     const existingId = formData.id;
     let newHistory = [...history];
     
@@ -231,7 +233,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       }
     }
 
-    // Otherwise, create a new one
     const newId = Date.now().toString();
     const newMeta = { ...formData, id: newId };
     const entry = { 
@@ -333,7 +334,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
               </div>
             </div>
 
-            <button onClick={handleGenerate} disabled={loading || !formData.subject || lessonsPerWeek === 0} className="w-full bg-indigo-600 text-white py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl hover:bg-indigo-700 transition disabled:opacity-30">
+            <button onClick={handleGenerate} disabled={loading || !formData.subject} className="w-full bg-indigo-600 text-white py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl hover:bg-indigo-700 transition disabled:opacity-30">
                {loading ? `ARCHITECTING... ${loadingStatus}` : "CONSTRUCT KICD SCHEME (SEQUENTIAL)"}
             </button>
           </div>
@@ -377,7 +378,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                     className={`h-full ${loading ? 'bg-indigo-400 animate-pulse' : 'bg-indigo-500'} transition-all duration-700`} 
                     style={{ 
                       width: `${loading 
-                        ? Math.min(100, (persistedSow.length / (13 * lessonsPerWeek)) * 100) 
+                        ? Math.min(100, (persistedSow.length / (13 * effectiveLessonsPerWeek)) * 100) 
                         : coverageStats.percentage}%` 
                     }}
                   ></div>
