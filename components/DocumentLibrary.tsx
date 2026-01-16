@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { KnowledgeDocument } from '../types';
 
@@ -165,7 +164,8 @@ const DocumentLibrary: React.FC<{
 
       {activeTab === 'official' ? (
         <div className="space-y-16 animate-in fade-in duration-500">
-          {Object.entries(groupedOfficial).map(([level, docs]) => (
+          {/* Fix: Explicitly cast Object.entries result to provide correct typing for docs, resolving 'unknown' property access errors */}
+          {(Object.entries(groupedOfficial) as [string, KnowledgeDocument[]][]).map(([level, docs]) => (
             <div key={level}>
               <div className="flex items-center gap-6 mb-10">
                 <h3 className="text-[14px] font-black text-indigo-950 uppercase tracking-[0.4em] whitespace-nowrap">{level}</h3>

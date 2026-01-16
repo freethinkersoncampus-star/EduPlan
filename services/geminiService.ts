@@ -1,66 +1,13 @@
-
+import { GoogleGenAI, Type } from "@google/genai";
 import { SOWRow, LessonPlan } from "../types";
 
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const MODEL = "google/gemini-2.0-flash-001"; 
+// Initialize the Google GenAI SDK with the API key from environment variables.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-function extractJSON(text: string) {
-  let cleaned = text.trim();
-  try { return JSON.parse(cleaned); } catch (e) {}
-
-  const jsonMatch = cleaned.match(/```json\n([\s\S]*?)\n```/) || cleaned.match(/{[\s\S]*}/);
-  let jsonString = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : cleaned;
-
-  try {
-    return JSON.parse(jsonString);
-  } catch (e) {
-    // Basic repair if closing brackets are missing
-    try {
-      let repaired = jsonString;
-      const openBraces = (repaired.match(/{/g) || []).length;
-      const closeBraces = (repaired.match(/}/g) || []).length;
-      const openBrackets = (repaired.match(/\[/g) || []).length;
-      const closeBrackets = (repaired.match(/\]/g) || []).length;
-
-      if (openBrackets > closeBrackets) repaired += ' ]';
-      if (openBraces > closeBraces) repaired += ' }';
-      return JSON.parse(repaired);
-    } catch (innerE) {
-      console.error("JSON Repair failed", innerE);
-    }
-    throw new Error("AI data integrity check failed. Retrying chunk...");
-  }
-}
-
-async function callOpenRouter(systemPrompt: string, userPrompt: string) {
-  const response = await fetch(OPENROUTER_API_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.API_KEY}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": window.location.origin, 
-      "X-Title": "EduPlan Pro"
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt } 
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 3000 
-    })
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.error?.message || `API Error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.choices[0].message.content;
-}
-
+/**
+ * Generates a chunk of the Scheme of Work (SOW) using the gemini-3-flash-preview model.
+ * Employs JSON response mode with a strict schema to ensure structural correctness.
+ */
 export const generateSOWChunk = async (
   subject: string, 
   grade: string, 
@@ -70,50 +17,60 @@ export const generateSOWChunk = async (
   lessonsPerWeek: number,
   knowledgeContext?: string
 ): Promise<SOWRow[]> => {
-  const systemPrompt = `You are a Senior KICD Curriculum Specialist. 
-  TASK: Generate a CBE Rationalized SOW for ${subject}, ${grade} for Weeks ${startWeek} to ${endWeek}.
+  const systemInstruction = `You are a Senior KICD Curriculum Specialist. Generate a CBE Rationalized SOW for ${subject}, ${grade}. 
+  Context: ${knowledgeContext || 'Standard CBE'}`;
   
-  MANDATORY JSON SCHEMA:
-  {
-    "lessons": [
-      {
-        "week": number,
-        "lesson": number,
-        "strand": "Strand Name",
-        "subStrand": "Sub-Strand Name",
-        "learningOutcomes": "Measurable outcomes",
-        "teachingExperiences": "Step-by-step activities",
-        "keyInquiryQuestions": "1-2 questions",
-        "learningResources": "Resources",
-        "assessmentMethods": "Methods",
-        "reflection": "Brief pedagogical note"
+  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TERM: ${term}. Weeks ${startWeek}-${endWeek}. ${lessonsPerWeek} lessons/wk.`;
+
+  // Use ai.models.generateContent to call the GenAI model directly.
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: userPrompt,
+    config: {
+      systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          lessons: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                week: { type: Type.INTEGER },
+                lesson: { type: Type.INTEGER },
+                strand: { type: Type.STRING },
+                subStrand: { type: Type.STRING },
+                learningOutcomes: { type: Type.STRING },
+                teachingExperiences: { type: Type.STRING },
+                keyInquiryQuestions: { type: Type.STRING },
+                learningResources: { type: Type.STRING },
+                assessmentMethods: { type: Type.STRING },
+                reflection: { type: Type.STRING }
+              },
+              required: ["week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection"]
+            }
+          }
+        },
+        required: ["lessons"]
       }
-    ]
+    }
+  });
+
+  // Extract text content using the .text property (not a method).
+  const text = response.text || '{"lessons": []}';
+  try {
+    const parsed = JSON.parse(text);
+    return (parsed.lessons || []) as SOWRow[];
+  } catch (e) {
+    console.error("Failed to parse SOW JSON output", e);
+    throw new Error("AI data integrity check failed. Please retry.");
   }
-
-  CRITICAL: You are generating only for weeks ${startWeek} to ${endWeek}. 
-  Provide exactly ${lessonsPerWeek} lessons for each week. Total lessons to generate: ${((endWeek - startWeek) + 1) * lessonsPerWeek}.`;
-
-  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TERM: ${term}.
-  RANGE: Weeks ${startWeek}-${endWeek}.
-  CONTEXT: ${knowledgeContext || 'KICD Rationalized'}`;
-
-  const content = await callOpenRouter(systemPrompt, userPrompt);
-  const parsed = extractJSON(content);
-  return (parsed.lessons || []) as SOWRow[];
 };
 
-export const generateSOW = async (
-  subject: string, 
-  grade: string, 
-  term: number,
-  lessonSlotsCount: number,
-  knowledgeContext?: string
-): Promise<SOWRow[]> => {
-  // This is kept for backward compatibility if needed, but the component should call chunks.
-  throw new Error("Use generateSOWChunk for sequential generation.");
-};
-
+/**
+ * Generates a comprehensive lesson plan using the gemini-3-pro-preview model for high-quality pedagogical output.
+ */
 export const generateLessonPlan = async (
   subject: string,
   grade: string,
@@ -122,60 +79,74 @@ export const generateLessonPlan = async (
   schoolName: string,
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
-  const systemPrompt = `You are a Senior KICD Curriculum Specialist and CBE Pedagogy Expert.
-  TASK: Generate a COMPLETE, HIGH-CONTENT, and DETAILED Lesson Plan. 
+  const systemInstruction = `You are a Senior KICD CBE Pedagogy Expert. 
+  TASK: Generate a COMPLETE, HIGH-CONTENT Lesson Plan for ${schoolName}. 
   
-  CRITICAL INSTRUCTION: 
-  - DO NOT use placeholders like "-", "N/A", "Learner to...", or empty strings. 
-  - Fill EVERY field with actual pedagogical content based on the provided topic.
-  - The 'learningArea' MUST be "${subject}".
-  - The 'grade' MUST be "${grade}".
-  - 'introduction': Provide exactly 3 bullet points of what the teacher says/does and what learners do.
-  - 'lessonDevelopment': Provide 3 distinct steps with detailed teacher and learner activities.
-  - 'conclusion': Provide exactly 3 bullet points showing the summary and assessment activity.
+  MANDATORY RULES:
+  1. NO PLACEHOLDERS. Do not use "-", "Step 1...", or empty strings.
+  2. TEACHER & LEARNER ACTIONS: Explicitly describe exactly what the teacher says/does AND exactly what the learners do.
+  3. CBE COMPLIANT: Use measurable outcomes and inquiry-based activities.
+  4. FULL CONTENT: The "introduction", "lessonDevelopment", and "conclusion" must be packed with specific instructional details.`;
+  
+  const userPrompt = `Architect a high-quality lesson for ${subject} Grade ${grade} on the topic of ${subStrand} (Strand: ${strand}). Context: ${knowledgeContext || 'Standard CBE'}`;
 
-  REQUIRED JSON STRUCTURE:
-  {
-    "school": "${schoolName}",
-    "year": 2025,
-    "term": "TWO",
-    "textbook": "SPARK INTEGRATED SCIENCE",
-    "week": 1,
-    "lessonNumber": 1,
-    "learningArea": "${subject}",
-    "grade": "${grade}",
-    "date": "2025-XX-XX",
-    "time": "40 Mins",
-    "roll": "40",
-    "strand": "${strand}",
-    "subStrand": "${subStrand}",
-    "keyInquiryQuestions": ["Question 1?", "Question 2?"],
-    "outcomes": ["Learners will identify...", "Learners will explain..."],
-    "learningResources": ["Charts", "Digital tools", "Textbooks"],
-    "introduction": ["Step 1...", "Step 2...", "Step 3..."],
-    "lessonDevelopment": [
-      { "title": "Discovery", "duration": "10m", "content": ["Teacher activity...", "Learner activity..."] },
-      { "title": "Guided Work", "duration": "10m", "content": ["Teacher activity...", "Learner activity..."] },
-      { "title": "Synthesis", "duration": "10m", "content": ["Teacher activity...", "Learner activity..."] }
-    ],
-    "conclusion": ["Summary activity...", "Assessment activity...", "Cleanup..."],
-    "extendedActivities": ["Home research activity"],
-    "teacherSelfEvaluation": "Learners participated actively and outcomes were achieved."
-  }`;
-  
-  const userPrompt = `ARCHITECT DETAILED LESSON PLAN FOR:
-  LEARNING AREA: ${subject}
-  GRADE: ${grade}
-  TOPIC/SUB-STRAND: ${subStrand}
-  STRAND: ${strand}
-  
-  SCHOOL: ${schoolName}
-  CONTEXT: ${knowledgeContext || 'KICD Rationalized Design'}`;
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-pro-preview',
+    contents: userPrompt,
+    config: {
+      systemInstruction,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          school: { type: Type.STRING },
+          year: { type: Type.INTEGER },
+          term: { type: Type.STRING },
+          textbook: { type: Type.STRING },
+          week: { type: Type.INTEGER },
+          lessonNumber: { type: Type.INTEGER },
+          learningArea: { type: Type.STRING },
+          grade: { type: Type.STRING },
+          date: { type: Type.STRING },
+          time: { type: Type.STRING },
+          roll: { type: Type.STRING },
+          strand: { type: Type.STRING },
+          subStrand: { type: Type.STRING },
+          keyInquiryQuestions: { type: Type.ARRAY, items: { type: Type.STRING } },
+          outcomes: { type: Type.ARRAY, items: { type: Type.STRING } },
+          learningResources: { type: Type.ARRAY, items: { type: Type.STRING } },
+          introduction: { type: Type.ARRAY, items: { type: Type.STRING } },
+          lessonDevelopment: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                duration: { type: Type.STRING },
+                content: { type: Type.ARRAY, items: { type: Type.STRING } }
+              }
+            }
+          },
+          conclusion: { type: Type.ARRAY, items: { type: Type.STRING } },
+          extendedActivities: { type: Type.ARRAY, items: { type: Type.STRING } },
+          teacherSelfEvaluation: { type: Type.STRING }
+        }
+      }
+    }
+  });
 
-  const content = await callOpenRouter(systemPrompt, userPrompt);
-  return extractJSON(content) as LessonPlan;
+  try {
+    const text = response.text || '{}';
+    return JSON.parse(text) as LessonPlan;
+  } catch (e) {
+    console.error("Failed to parse Lesson Plan JSON output", e);
+    throw new Error("AI output integrity failed. Please try again.");
+  }
 };
 
+/**
+ * Generates detailed Markdown study notes for a specific topic using gemini-3-flash-preview.
+ */
 export const generateLessonNotes = async (
   subject: string,
   grade: string,
@@ -183,22 +154,16 @@ export const generateLessonNotes = async (
   customContext?: string,
   knowledgeContext?: string
 ): Promise<string> => {
-  const systemPrompt = "Subject Teacher. Generate concise Markdown study notes.";
-  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}.`;
+  const systemInstruction = "Subject Teacher. Generate comprehensive Markdown study notes.";
+  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}. ${knowledgeContext ? `Extra Context: ${knowledgeContext}` : ''}`;
 
-  const response = await fetch(OPENROUTER_API_URL, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${process.env.API_KEY}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": window.location.origin,
-      "X-Title": "EduPlan Pro"
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }]
-    })
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: userPrompt,
+    config: {
+      systemInstruction
+    }
   });
-  const data = await response.json();
-  return data.choices[0].message.content;
+
+  return response.text || '';
 };
