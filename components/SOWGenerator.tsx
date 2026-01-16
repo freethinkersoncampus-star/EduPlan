@@ -1,5 +1,6 @@
 
-import { useState, useEffect, useMemo } from 'react';
+// Add React import for React.FC and React.MouseEvent types
+import React, { useState, useEffect, useMemo } from 'react';
 import { generateSOW } from '../services/geminiService';
 import { exportSOWToDocx } from '../services/exportService';
 import { SOWRow, LessonSlot, SavedSOW, UserProfile } from '../types';
@@ -11,7 +12,7 @@ interface SOWGeneratorProps {
   setPersistedSow: (sow: SOWRow[]) => void;
   persistedMeta: any;
   setPersistedMeta: (meta: any) => void;
-  onPrefillPlanner: (data: any) => void;
+  onPrefillPlanner: (data) => void;
   userProfile: UserProfile;
   history: SavedSOW[];
   setHistory: (history: SavedSOW[]) => void;
@@ -112,7 +113,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     }
 
     setLoading(true);
-    // ATOMIC FIX: Using a single pass for the entire term to avoid double-hitting the AI quota
     setLoadingStatus('Architecting Term Curriculum (Weeks 1-12)...');
     
     try {
@@ -130,7 +130,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       let breakInserted = false;
 
       rawResult.forEach((row) => {
-        // Automatically insert half-term break after Week 6
         if (row.week === 7 && !breakInserted) {
           enriched.push({
             week: 7, 
@@ -148,7 +147,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
           breakInserted = true;
         }
         
-        // Offset weeks 7-12 by one to account for the half-term week
         enriched.push({ 
           ...row, 
           isCompleted: false, 
@@ -161,7 +159,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       setPersistedMeta(formData);
     } catch (err: any) {
       console.error(err);
-      // More descriptive error for the teacher
       const isQuota = err.message?.includes('429') || err.message?.includes('quota');
       if (isQuota) {
         alert("AI QUOTA REACHED: The server is busy. Your request has been queued. Please wait 1 minute and click generate again.");

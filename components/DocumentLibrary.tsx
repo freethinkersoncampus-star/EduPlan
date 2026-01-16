@@ -98,7 +98,8 @@ const DocumentLibrary: React.FC<{
     }
   };
 
-  const groupedOfficial = useMemo(() => {
+  // Explicitly type return value of useMemo to fix 'unknown' type error in entries map
+  const groupedOfficial = useMemo<Record<string, KnowledgeDocument[]>>(() => {
     const filtered = documents.filter(d => d.isSystemDoc && 
       (d.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
        d.category?.toLowerCase().includes(searchQuery.toLowerCase()))

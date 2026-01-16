@@ -1,25 +1,28 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { SOWRow, LessonPlan } from "../types";
 
 /**
- * EDUPLAN AI SERVICE - POWERED BY GEMINI 3 PRO
- * Implementation using the official @google/genai SDK.
+ * EDUPLAN AI SERVICE - POWERED BY GOOGLE GEMINI
  */
 
-// Initialize the Gemini API client using the environment variable.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+// Using gemini-3-pro-preview for advanced reasoning and pedagogical structuring
+const MODEL = "gemini-3-pro-preview";
+
 /**
- * Maintains the existing retry signature for platform stability.
+ * Maintains robust retry logic for API stability.
  */
 async function callWithRetry<T>(fn: () => Promise<T>, retries = 3, delay = 3000): Promise<T> {
   try {
     return await fn();
   } catch (error: any) {
-    const isRateLimit = error?.message?.toLowerCase().includes('429') || 
+    const isRetryable = error?.message?.toLowerCase().includes('429') || 
+                        error?.message?.toLowerCase().includes('timeout') ||
                         error?.message?.toLowerCase().includes('quota');
-    if (isRateLimit && retries > 0) {
-      console.warn(`AI busy. Retrying in ${delay}ms...`);
+    if (isRetryable && retries > 0) {
+      console.warn(`Gemini API busy. Retrying in ${delay}ms...`);
       await new Promise(resolve => setTimeout(resolve, delay));
       return callWithRetry(fn, retries - 1, delay * 2);
     }
@@ -36,17 +39,15 @@ export const generateSOW = async (
   weekOffset: number = 1
 ): Promise<SOWRow[]> => {
   return callWithRetry(async () => {
-    const prompt = `
-      CONTEXT: ${knowledgeContext || 'KICD Rationalized Curriculum 2024/2025'}
-      TASK: Generate a CBE Rationalized Scheme of Work for ${subject}, ${grade}, Term ${term}.
-      Generate exactly ${lessonSlotsCount} lessons starting from Week ${weekOffset}.
-    `;
-
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: prompt,
+      model: MODEL,
+      contents: `
+        CONTEXT: ${knowledgeContext || 'KICD Rationalized Curriculum 2024/2025'}
+        TASK: Generate a CBE Rationalized Scheme of Work for ${subject}, ${grade}, Term ${term}.
+        Generate exactly ${lessonSlotsCount} lessons starting from Week ${weekOffset}.
+      `,
       config: {
-        systemInstruction: "You are a KICD Curriculum Specialist. You output valid JSON objects matching the provided schema.",
+        systemInstruction: "You are a KICD Curriculum Specialist. You output valid JSON objects only. Ensure the 'lessons' array contains exactly the number of objects requested.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -67,16 +68,15 @@ export const generateSOW = async (
                   assessmentMethods: { type: Type.STRING },
                   reflection: { type: Type.STRING }
                 },
-                required: ['week', 'lesson', 'strand', 'subStrand', 'learningOutcomes', 'teachingExperiences', 'keyInquiryQuestions', 'learningResources', 'assessmentMethods', 'reflection']
+                required: ["week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection"]
               }
             }
           },
-          required: ['lessons']
+          required: ["lessons"]
         }
-      }
+      },
     });
 
-    // The .text property directly returns the extracted string output.
     const parsed = JSON.parse(response.text || '{}');
     return (parsed.lessons || []) as SOWRow[];
   });
@@ -91,18 +91,16 @@ export const generateLessonPlan = async (
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
   return callWithRetry(async () => {
-    const prompt = `
-      SUBJECT: ${subject} | LEVEL: ${grade} | TOPIC: ${subStrand}. 
-      CONTEXT: ${knowledgeContext || 'KICD CBE'}
-      SCHOOL: ${schoolName}
-      TASK: Generate a complete KICD CBE Lesson Plan in JSON format matching the standard pedagogical schema.
-    `;
-
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: prompt,
+      model: MODEL,
+      contents: `
+        SUBJECT: ${subject} | LEVEL: ${grade} | TOPIC: ${subStrand}. 
+        CONTEXT: ${knowledgeContext || 'KICD CBE'}
+        SCHOOL: ${schoolName}
+        TASK: Generate a complete KICD CBE Lesson Plan.
+      `,
       config: {
-        systemInstruction: "You are a KICD Consultant specializing in CBE Lesson Planning. Output a detailed JSON object.",
+        systemInstruction: "You are a KICD Consultant specializing in CBE Lesson Planning. Output a detailed JSON object following the pedagogical schema.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -133,23 +131,18 @@ export const generateLessonPlan = async (
                   duration: { type: Type.STRING },
                   content: { type: Type.ARRAY, items: { type: Type.STRING } }
                 },
-                required: ['title', 'duration', 'content']
+                required: ["title", "duration", "content"]
               }
             },
             conclusion: { type: Type.ARRAY, items: { type: Type.STRING } },
             extendedActivities: { type: Type.ARRAY, items: { type: Type.STRING } },
             teacherSelfEvaluation: { type: Type.STRING }
           },
-          required: [
-            'school', 'year', 'term', 'textbook', 'week', 'lessonNumber', 'learningArea', 'grade', 
-            'strand', 'subStrand', 'keyInquiryQuestions', 'outcomes', 'learningResources', 
-            'introduction', 'lessonDevelopment', 'conclusion', 'extendedActivities', 'teacherSelfEvaluation'
-          ]
+          required: ["school", "year", "term", "textbook", "week", "lessonNumber", "learningArea", "grade", "date", "time", "roll", "strand", "subStrand", "keyInquiryQuestions", "outcomes", "learningResources", "introduction", "lessonDevelopment", "conclusion", "extendedActivities", "teacherSelfEvaluation"]
         }
-      }
+      },
     });
-    
-    // The .text property directly returns the extracted string output.
+
     return JSON.parse(response.text || '{}') as LessonPlan;
   });
 };
@@ -162,19 +155,17 @@ export const generateLessonNotes = async (
   knowledgeContext?: string
 ): Promise<string> => {
   return callWithRetry(async () => {
-    const prompt = `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}. 
-    KNOWLEDGE: ${knowledgeContext || 'Standard CBE'}
-    Generate comprehensive study notes for learners. Use Markdown for formatting.`;
-
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
+      model: MODEL,
+      contents: `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}. 
+      KNOWLEDGE: ${knowledgeContext || 'Standard CBE'}
+      CUSTOM CONTEXT: ${customContext || 'None'}
+      Generate comprehensive study notes for learners. Use Markdown headings, bullet points, and tables where necessary.`,
       config: {
-        systemInstruction: "You are a specialized subject teacher. Generate detailed, accurate study notes in Markdown."
-      }
+        systemInstruction: "You are a specialized subject teacher. Generate detailed, accurate study notes in Markdown format."
+      },
     });
 
-    // The .text property directly returns the extracted string output.
     return response.text || "Failed to generate notes.";
   });
 };
