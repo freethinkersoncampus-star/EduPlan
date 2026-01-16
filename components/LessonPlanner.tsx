@@ -109,9 +109,9 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
     const newEntry: SavedLessonPlan = {
       id: Date.now().toString(),
       dateCreated: new Date().toLocaleDateString(),
-      title: `${plan.learningArea} - ${plan.subStrand}`,
-      subject: plan.learningArea,
-      grade: plan.grade,
+      title: `${(plan.learningArea || '').toUpperCase()} - ${(plan.subStrand || '').toUpperCase()}`,
+      subject: plan.learningArea || '',
+      grade: plan.grade || '',
       plan: plan
     };
     setSavedPlans([newEntry, ...savedPlans]);
@@ -177,7 +177,7 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                     setInput({...input, subject: s, grade: g});
                     }}>
                     <option value="|">-- SELECT --</option>
-                    {userProfile.subjects.map(p => <option key={p.id} value={`${p.subject}|${p.grade}`}>{p.subject} ({p.grade})</option>)}
+                    {(userProfile.subjects || []).map(p => <option key={p.id} value={`${p.subject}|${p.grade}`}>{p.subject} ({p.grade})</option>)}
                     </select>
                 </div>
                 <div>
@@ -237,13 +237,13 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                         
                         <div className="text-center mb-12 border-b-2 border-black pb-4">
                            <h1 className="text-xl font-black uppercase tracking-tight underline underline-offset-4 mb-2 text-black">
-                              {plan.year || 2025} RATIONALIZED {plan.learningArea.toUpperCase()} LESSON PLANS
+                              {(plan.year || 2025)} RATIONALIZED {(plan.learningArea || '').toUpperCase()} LESSON PLANS
                            </h1>
                            <h2 className="text-lg font-black uppercase tracking-widest mb-4 text-black">
-                              TERM {plan.term || 'TWO'} - {plan.textbook || 'SPARK INTEGRATED SCIENCE'}
+                              TERM {(plan.term || 'TWO')} - {(plan.textbook || 'SPARK INTEGRATED SCIENCE')}
                            </h2>
                            <div className="text-left font-black uppercase text-sm mt-6 text-black">
-                              WEEK {plan.week || 1}: LESSON {plan.lessonNumber || 1}
+                              WEEK {(plan.week || 1)}: LESSON {(plan.lessonNumber || 1)}
                            </div>
                         </div>
 
@@ -260,8 +260,8 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                                  </tr>
                                  <tr>
                                     <td className="border border-black p-4 font-bold text-center text-black">{userProfile.school || '-'}</td>
-                                    <td className="border border-black p-4 font-bold text-center text-black">{plan.grade}</td>
-                                    <td className="border border-black p-4 font-bold text-center uppercase text-black">{plan.learningArea}</td>
+                                    <td className="border border-black p-4 font-bold text-center text-black">{plan.grade || '-'}</td>
+                                    <td className="border border-black p-4 font-bold text-center uppercase text-black">{plan.learningArea || '-'}</td>
                                     <td className="border border-black p-4 text-black"></td>
                                     <td className="border border-black p-4 text-black"></td>
                                     <td className="border border-black p-4 text-black"></td>
@@ -272,8 +272,8 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
 
                         <div className="space-y-8 text-[11px] leading-relaxed text-black">
                            <div className="space-y-1">
-                              <p className="font-black">Strand: <span className="font-bold text-slate-700 print:text-black">{plan.strand}</span></p>
-                              <p className="font-black">Sub Strand: <span className="font-bold text-slate-700 print:text-black">{plan.subStrand}</span></p>
+                              <p className="font-black">Strand: <span className="font-bold text-slate-700 print:text-black">{plan.strand || '-'}</span></p>
+                              <p className="font-black">Sub Strand: <span className="font-bold text-slate-700 print:text-black">{plan.subStrand || '-'}</span></p>
                            </div>
 
                            <div>
@@ -281,6 +281,7 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                               <p className="font-bold italic mb-2">By the end of the lesson, learners should be able to:</p>
                               <ul className="list-disc pl-5 space-y-1">
                                 {(plan.outcomes || []).map((o, idx) => <li key={idx} className="font-medium text-slate-700 print:text-black">{o}</li>)}
+                                {!(plan.outcomes?.length) && <li className="text-slate-300 italic">No outcomes defined.</li>}
                               </ul>
                            </div>
 
@@ -313,9 +314,9 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                                     <h5 className="font-black underline">Lesson Development (30 minutes)</h5>
                                     {(plan.lessonDevelopment || []).map((step, idx) => (
                                        <div key={idx} className="ml-2">
-                                          <p className="font-black mb-1">Step {idx + 1}: {step.title} ({step.duration})</p>
+                                          <p className="font-black mb-1">Step {idx + 1}: {step?.title || 'Procedure'} ({step?.duration || '10m'})</p>
                                           <ul className="list-disc pl-5 space-y-1">
-                                             {(step.content || []).map((item, subIdx) => <li key={subIdx}>{item}</li>)}
+                                             {(step?.content || []).map((item, subIdx) => <li key={subIdx}>{item}</li>)}
                                           </ul>
                                        </div>
                                     ))}
@@ -396,13 +397,13 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
         <div className="space-y-8 animate-in fade-in duration-500 print:hidden">
            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
               <div className="flex bg-slate-100 p-1 rounded-2xl w-fit mb-10 shadow-inner">
-                 <button onClick={() => setLibraryTab('plans')} className={`px-10 py-3 rounded-xl font-black text-[10px] tracking-widest transition-all uppercase ${libraryTab === 'plans' ? 'bg-white text-indigo-900 shadow-md' : 'text-slate-500'}`}>Plans Archive ({savedPlans.length})</button>
-                 <button onClick={() => setLibraryTab('notes')} className={`px-10 py-3 rounded-xl font-black text-[10px] tracking-widest transition-all uppercase ${libraryTab === 'notes' ? 'bg-white text-indigo-900 shadow-md' : 'text-slate-500'}`}>Notes Archive ({savedNotes.length})</button>
+                 <button onClick={() => setLibraryTab('plans')} className={`px-10 py-3 rounded-xl font-black text-[10px] tracking-widest transition-all uppercase ${libraryTab === 'plans' ? 'bg-white text-indigo-900 shadow-md' : 'text-slate-500'}`}>Plans Archive ({(savedPlans || []).length})</button>
+                 <button onClick={() => setLibraryTab('notes')} className={`px-10 py-3 rounded-xl font-black text-[10px] tracking-widest transition-all uppercase ${libraryTab === 'notes' ? 'bg-white text-indigo-900 shadow-md' : 'text-slate-500'}`}>Notes Archive ({(savedNotes || []).length})</button>
               </div>
 
               {libraryTab === 'plans' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                   {savedPlans.map(item => (
+                   {(savedPlans || []).map(item => (
                      <div key={item.id} className="group relative p-8 border-2 border-slate-50 rounded-[2rem] hover:border-indigo-200 transition bg-slate-50/50 cursor-pointer" onClick={() => { setPlan(item.plan); setView('editor'); }}>
                         <div className="flex justify-between mb-6">
                            <span className="text-[9px] font-black text-indigo-500 uppercase bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">CBE PLAN</span>
@@ -417,11 +418,11 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{item.grade}</p>
                      </div>
                    ))}
-                   {savedPlans.length === 0 && <div className="col-span-full py-32 text-center text-slate-300 italic font-black uppercase tracking-widest">No plans archived.</div>}
+                   {(!savedPlans?.length) && <div className="col-span-full py-32 text-center text-slate-300 italic font-black uppercase tracking-widest">No plans archived.</div>}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                   {savedNotes.map(item => (
+                   {(savedNotes || []).map(item => (
                      <div key={item.id} className="group relative p-8 border-2 border-slate-50 rounded-[2rem] hover:border-emerald-200 transition bg-slate-50/50 cursor-pointer" onClick={() => { setNotes(item.content); setInput({...input, subject: item.subject, grade: item.grade}); setView('editor'); }}>
                         <div className="flex justify-between mb-6">
                            <span className="text-[9px] font-black text-emerald-500 uppercase bg-emerald-50 px-3 py-1 rounded-full border border-emerald-100">NOTES</span>
@@ -436,7 +437,7 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{item.grade}</p>
                      </div>
                    ))}
-                   {savedNotes.length === 0 && <div className="col-span-full py-32 text-center text-slate-300 italic font-black uppercase tracking-widest">No notes archived.</div>}
+                   {(!savedNotes?.length) && <div className="col-span-full py-32 text-center text-slate-300 italic font-black uppercase tracking-widest">No notes archived.</div>}
                 </div>
               )}
            </div>

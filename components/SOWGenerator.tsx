@@ -119,10 +119,9 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     }
 
     setLoading(true);
-    setPersistedSow([]); // Clear existing for a fresh start
+    setPersistedSow([]); 
     
     try {
-      // Chunking Weeks 1-12 into groups of 4 to stay under token limits
       const chunks = [
         { start: 1, end: 4 },
         { start: 5, end: 8 },
@@ -159,7 +158,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
 
         allLessons = [...allLessons, ...chunkResult];
         
-        // Show live updates to the user as chunks arrive
         const intermediaryEnriched: SOWRow[] = allLessons.map(row => ({
           ...row,
           isCompleted: false,
@@ -168,12 +166,10 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
         setPersistedSow(calculateDatesFromTimetable(intermediaryEnriched));
       }
 
-      // Final processing: Re-align weeks to account for Half Term Break at Week 7
       const finalSow: SOWRow[] = [];
       let breakInserted = false;
       
       allLessons.forEach((row) => {
-        // Correct week calculation: Week 1-6 stay, Week 7 is break, original Week 7 becomes Week 8
         const targetWeek = row.week >= 7 ? row.week + 1 : row.week;
 
         if (targetWeek > 7 && !breakInserted) {
@@ -277,7 +273,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
               </div>
             </div>
 
-            {/* Date Configuration Row - Ensured all 4 fields are here */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
               <div>
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Term Start</label>
@@ -319,18 +314,23 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
         )}
       </div>
 
-      {/* Re-enabled persistent Status Bar area during generation */}
       {!showLibrary && (persistedSow.length > 0 || loading) && (
         <div className="space-y-6 animate-in fade-in duration-500">
           <div className="bg-white p-4 md:p-6 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4 md:gap-8 print:hidden">
             <div className="flex-1 w-full">
                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
-                 {loading ? `Architecting Pipeline: ${persistedSow.length} Lessons Compiled` : `Progress: ${persistedSow.length} Rows Generated`}
+                 {loading 
+                   ? `Architecting Pipeline: ${persistedSow.length} Lessons Generated` 
+                   : `Curriculum Coverage: ${coverageStats.percentage}% (${coverageStats.completed}/${coverageStats.total} Lessons Covered)`}
                </span>
                <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
                   <div 
                     className={`h-full ${loading ? 'bg-indigo-400 animate-pulse' : 'bg-indigo-500'} transition-all duration-700`} 
-                    style={{ width: `${Math.min(100, (persistedSow.length / (13 * lessonsPerWeek)) * 100)}%` }}
+                    style={{ 
+                      width: `${loading 
+                        ? Math.min(100, (persistedSow.length / (13 * lessonsPerWeek)) * 100) 
+                        : coverageStats.percentage}%` 
+                    }}
                   ></div>
                </div>
             </div>

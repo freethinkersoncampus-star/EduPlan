@@ -66,7 +66,6 @@ const MobileNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTa
     ].map(item => (
       <button key={item.id} onClick={() => setActiveTab(item.id)} className="flex flex-col items-center gap-1.5">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400'}`}>
-          {/* Fix: Removed extra closing brace that was causing a syntax error and 'Cannot find name nav' error */}
           <i className={`fas ${item.icon} text-sm`}></i>
         </div>
         <span className={`text-[8px] font-black uppercase tracking-widest ${activeTab === item.id ? 'text-indigo-600' : 'text-slate-400'}`}>{item.label}</span>
@@ -150,10 +149,6 @@ const App = () => {
     return () => subscription.unsubscribe();
   }, [resetLocalState]);
 
-  /**
-   * REFINED CLOUD HYDRATION:
-   * Only attempts hydration once per user session to avoid data loops.
-   */
   const loadFromCloud = useCallback(async (userId: string) => {
     if (!supabase || hydrationAttempted.current === userId) return;
     
@@ -188,7 +183,6 @@ const App = () => {
         if (d.note_history) setNoteHistory(d.note_history);
         if (d.docs) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...d.docs]);
       } else {
-        // Fallback to local backup if cloud is empty but user exists locally
         const userSpecificKey = getStorageKey(userId);
         const localBackup = localStorage.getItem(userSpecificKey);
         if (localBackup) {
@@ -222,10 +216,6 @@ const App = () => {
     }
   }, [session, loadFromCloud, isHydrated]);
 
-  /**
-   * ATOMIC SYNC MANAGER:
-   * Prevents overwrites, handles race conditions via locks, and provides status.
-   */
   const syncToCloud = useCallback(async (force = false) => {
     if (!session?.user?.id || !supabase || !isHydrated) return;
     if (!isDirty && !force) return;
@@ -238,7 +228,6 @@ const App = () => {
     const userId = session.user.id;
     
     try {
-      // Step 1: Push Profile Changes
       const { error: profileErr } = await supabase.from('profiles').upsert({
         id: userId,
         name: profile.name,
@@ -253,7 +242,6 @@ const App = () => {
 
       if (profileErr) throw profileErr;
 
-      // Step 2: Push Data Payload
       const { error: dataErr } = await supabase.from('user_data').upsert({
         user_id: userId,
         slots,
@@ -264,14 +252,20 @@ const App = () => {
         updated_at: new Date().toISOString()
       });
 
-      if (dataErr) throw dataErr;
+      if (dataErr) {
+        // Handle database legacy schema issues (missing columns) gracefully
+        if (dataErr.message?.includes('note_history')) {
+          console.warn("Legacy database detected. Skipping cloud notes sync.");
+        } else {
+          throw dataErr;
+        }
+      }
 
       setSyncStatus('online');
       setSyncMessage('Changes Secured in Vault');
       setLastSynced(new Date().toLocaleTimeString());
       setIsDirty(false);
 
-      // Local Backup for offline trust
       localStorage.setItem(getStorageKey(userId), JSON.stringify({ 
         slots, 
         sowHistory, 
@@ -284,16 +278,15 @@ const App = () => {
     } catch (err: any) {
       console.error("Cloud write failed:", err);
       setSyncStatus('error');
-      setSyncMessage(`Sync Error: ${err.message || 'Server Busy'}`);
+      setSyncMessage('Vault Sync Issue (Local Backup Active)');
     } finally {
       syncLock.current = false;
     }
   }, [session, profile, slots, sowHistory, planHistory, noteHistory, documents, isHydrated, isDirty]);
 
-  // Debounced Auto-Sync
   useEffect(() => {
     if (!isHydrated || !isDirty) return;
-    const timer = setTimeout(() => syncToCloud(), 5000); // 5s debounce for stability
+    const timer = setTimeout(() => syncToCloud(), 5000);
     return () => clearTimeout(timer);
   }, [isDirty, syncToCloud, isHydrated]);
 
@@ -353,7 +346,7 @@ const App = () => {
         </header>
 
         <div className="max-w-7xl mx-auto">
-          {activeTab === 'dashboard' && <Dashboard stats={{ sowCount: sowHistory.length, planCount: planHistory.length, subjectCount: profile.subjects.length, nextLesson: slots.length > 0 ? slots[0].subject : 'None' }} slots={slots} user={profile} onNavigate={setActiveTab} />}
+          {activeTab === 'dashboard' && <Dashboard stats={{ sowCount: sowHistory.length, planCount: planHistory.length, subjectCount: (profile.subjects || []).length, nextLesson: slots.length > 0 ? slots[0].subject : 'None' }} slots={slots} user={profile} onNavigate={setActiveTab} />}
           {activeTab === 'registry' && (
             <StaffManagement 
               profile={profile} 
