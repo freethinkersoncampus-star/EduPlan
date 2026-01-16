@@ -1,13 +1,20 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { SOWRow, LessonPlan } from "../types";
 
-// Initialize the Google GenAI SDK with the API key from environment variables.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Initialize the Google GenAI SDK
+const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-/**
- * Generates a chunk of the Scheme of Work (SOW) using the gemini-3-flash-preview model.
- * Employs JSON response mode with a strict schema to ensure structural correctness.
- */
+function extractJSON(text: string) {
+  let cleaned = text.trim();
+  const jsonMatch = cleaned.match(/```json\n([\s\S]*?)\n```/) || cleaned.match(/{[\s\S]*}/);
+  let jsonString = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : cleaned;
+  try { return JSON.parse(jsonString); } catch (e) {
+    console.error("JSON Parse failed", e);
+    throw new Error("AI data error. Please try again.");
+  }
+}
+
 export const generateSOWChunk = async (
   subject: string, 
   grade: string, 
@@ -17,60 +24,18 @@ export const generateSOWChunk = async (
   lessonsPerWeek: number,
   knowledgeContext?: string
 ): Promise<SOWRow[]> => {
-  const systemInstruction = `You are a Senior KICD Curriculum Specialist. Generate a CBE Rationalized SOW for ${subject}, ${grade}. 
-  Context: ${knowledgeContext || 'Standard CBE'}`;
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
   
-  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TERM: ${term}. Weeks ${startWeek}-${endWeek}. ${lessonsPerWeek} lessons/wk.`;
+  const prompt = `Generate a KICD Rationalized Schemes of Work for ${subject}, ${grade}, Term ${term}, Weeks ${startWeek} to ${endWeek}.
+  Context: ${knowledgeContext || 'Standard CBE'}
+  Respond ONLY with JSON matching: { "lessons": [{ "week": number, "lesson": number, "strand": "str", "subStrand": "str", "learningOutcomes": "str", "teachingExperiences": "str", "keyInquiryQuestions": "str", "learningResources": "str", "assessmentMethods": "str", "reflection": "str" }] }`;
 
-  // Use ai.models.generateContent to call the GenAI model directly.
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: userPrompt,
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          lessons: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                week: { type: Type.INTEGER },
-                lesson: { type: Type.INTEGER },
-                strand: { type: Type.STRING },
-                subStrand: { type: Type.STRING },
-                learningOutcomes: { type: Type.STRING },
-                teachingExperiences: { type: Type.STRING },
-                keyInquiryQuestions: { type: Type.STRING },
-                learningResources: { type: Type.STRING },
-                assessmentMethods: { type: Type.STRING },
-                reflection: { type: Type.STRING }
-              },
-              required: ["week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection"]
-            }
-          }
-        },
-        required: ["lessons"]
-      }
-    }
-  });
-
-  // Extract text content using the .text property (not a method).
-  const text = response.text || '{"lessons": []}';
-  try {
-    const parsed = JSON.parse(text);
-    return (parsed.lessons || []) as SOWRow[];
-  } catch (e) {
-    console.error("Failed to parse SOW JSON output", e);
-    throw new Error("AI data integrity check failed. Please retry.");
-  }
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const parsed = extractJSON(response.text());
+  return (parsed.lessons || []) as SOWRow[];
 };
 
-/**
- * Generates a comprehensive lesson plan using the gemini-3-pro-preview model for high-quality pedagogical output.
- */
 export const generateLessonPlan = async (
   subject: string,
   grade: string,
@@ -79,74 +44,21 @@ export const generateLessonPlan = async (
   schoolName: string,
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
-  const systemInstruction = `You are a Senior KICD CBE Pedagogy Expert. 
-  TASK: Generate a COMPLETE, HIGH-CONTENT Lesson Plan for ${schoolName}. 
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
   
-  MANDATORY RULES:
-  1. NO PLACEHOLDERS. Do not use "-", "Step 1...", or empty strings.
-  2. TEACHER & LEARNER ACTIONS: Explicitly describe exactly what the teacher says/does AND exactly what the learners do.
-  3. CBE COMPLIANT: Use measurable outcomes and inquiry-based activities.
-  4. FULL CONTENT: The "introduction", "lessonDevelopment", and "conclusion" must be packed with specific instructional details.`;
+  const prompt = `Generate a high-content, DETAILED CBE Lesson Plan for:
+  Subject: ${subject} | Grade: ${grade} | Strand: ${strand} | Topic: ${subStrand}.
+  School: ${schoolName}
+  Context: ${knowledgeContext || 'Standard CBE'}
   
-  const userPrompt = `Architect a high-quality lesson for ${subject} Grade ${grade} on the topic of ${subStrand} (Strand: ${strand}). Context: ${knowledgeContext || 'Standard CBE'}`;
+  MANDATORY: Provide detailed teacher and learner activities for Introduction, 3 Development steps, and Conclusion. No placeholders.
+  Respond ONLY with JSON matching the LessonPlan schema provided in previous context.`;
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: userPrompt,
-    config: {
-      systemInstruction,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          school: { type: Type.STRING },
-          year: { type: Type.INTEGER },
-          term: { type: Type.STRING },
-          textbook: { type: Type.STRING },
-          week: { type: Type.INTEGER },
-          lessonNumber: { type: Type.INTEGER },
-          learningArea: { type: Type.STRING },
-          grade: { type: Type.STRING },
-          date: { type: Type.STRING },
-          time: { type: Type.STRING },
-          roll: { type: Type.STRING },
-          strand: { type: Type.STRING },
-          subStrand: { type: Type.STRING },
-          keyInquiryQuestions: { type: Type.ARRAY, items: { type: Type.STRING } },
-          outcomes: { type: Type.ARRAY, items: { type: Type.STRING } },
-          learningResources: { type: Type.ARRAY, items: { type: Type.STRING } },
-          introduction: { type: Type.ARRAY, items: { type: Type.STRING } },
-          lessonDevelopment: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                title: { type: Type.STRING },
-                duration: { type: Type.STRING },
-                content: { type: Type.ARRAY, items: { type: Type.STRING } }
-              }
-            }
-          },
-          conclusion: { type: Type.ARRAY, items: { type: Type.STRING } },
-          extendedActivities: { type: Type.ARRAY, items: { type: Type.STRING } },
-          teacherSelfEvaluation: { type: Type.STRING }
-        }
-      }
-    }
-  });
-
-  try {
-    const text = response.text || '{}';
-    return JSON.parse(text) as LessonPlan;
-  } catch (e) {
-    console.error("Failed to parse Lesson Plan JSON output", e);
-    throw new Error("AI output integrity failed. Please try again.");
-  }
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  return extractJSON(response.text()) as LessonPlan;
 };
 
-/**
- * Generates detailed Markdown study notes for a specific topic using gemini-3-flash-preview.
- */
 export const generateLessonNotes = async (
   subject: string,
   grade: string,
@@ -154,16 +66,9 @@ export const generateLessonNotes = async (
   customContext?: string,
   knowledgeContext?: string
 ): Promise<string> => {
-  const systemInstruction = "Subject Teacher. Generate comprehensive Markdown study notes.";
-  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${topic}. ${knowledgeContext ? `Extra Context: ${knowledgeContext}` : ''}`;
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: userPrompt,
-    config: {
-      systemInstruction
-    }
-  });
-
-  return response.text || '';
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
+  const prompt = `Generate comprehensive Markdown study notes for ${subject} Grade ${grade} on the topic of ${topic}. Context: ${knowledgeContext || ''}`;
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  return response.text();
 };

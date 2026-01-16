@@ -15,36 +15,10 @@ const SYSTEM_CURRICULUM_DOCS: KnowledgeDocument[] = [
   { id: 'pp-lang', title: 'Language Activities', content: 'KICD Rationalized: Pre-reading, listening, and speaking skills for early learners.', type: 'KICD', size: '2.1 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
   { id: 'pp-math', title: 'Mathematical Activities', content: 'KICD Rationalized: Classification, number recognition, and simple pattern awareness.', type: 'KICD', size: '1.9 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
   { id: 'pp-env', title: 'Environmental Activities', content: 'KICD Rationalized: Cleanliness, safety, and social environment.', type: 'KICD', size: '2.4 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'pp-psycho', title: 'Psychomotor & Creative Activities', content: 'KICD Rationalized: Fine and gross motor skills development.', type: 'KICD', size: '3.1 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'pp-rel', title: 'Religious Education Activities', content: 'KICD Rationalized: Foundational moral and spiritual values.', type: 'KICD', size: '1.8 MB', date: '2025', category: 'Pre-Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'lp-lit-e', title: 'English Literacy', content: 'Rationalized: Foundational English reading and writing.', type: 'KICD', size: '3.1 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'lp-lit-k', title: 'Kiswahili / KSL Literacy', content: 'Rationalized: Stadi za kusikiliza, kuzungumza, kusoma na kuandika.', type: 'KICD', size: '2.9 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'lp-math', title: 'Mathematics (G1-3)', content: 'Rationalized: Numbers, measurement, and basic geometry.', type: 'KICD', size: '3.5 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'lp-env', title: 'Environmental Activities (G1-3)', content: 'Rationalized: Weather, soil, water, and living things.', type: 'KICD', size: '2.8 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'lp-hygiene', title: 'Hygiene & Nutrition', content: 'Rationalized: Health habits and balanced diets.', type: 'KICD', size: '2.2 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'lp-creative', title: 'Movement & Creative Arts', content: 'Rationalized: Music, art, and physical education.', type: 'KICD', size: '4.1 MB', date: '2025', category: 'Lower Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'up-eng', title: 'English (G4-6)', content: 'Rationalized Curriculum: Complex grammar and comprehension.', type: 'KICD', size: '3.8 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'up-kis', title: 'Kiswahili (G4-6)', content: 'Mtaala uliopunguzwa makali: Sarufi na Insha.', type: 'KICD', size: '3.6 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'up-math', title: 'Mathematics (G4-6)', content: 'Rationalized Curriculum: Fractions, algebra, and data handling.', type: 'KICD', size: '4.2 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'up-science', title: 'Science & Technology (G4-6)', content: 'Rationalized Curriculum: Human body, plants, and simple machines.', type: 'KICD', size: '4.5 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'up-ss', title: 'Social Studies (G4-6)', content: 'Rationalized Curriculum: Citizenship, mapping, and resources.', type: 'KICD', size: '3.9 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'up-agri', title: 'Agriculture & Nutrition (G4-6)', content: 'Rationalized Curriculum: Food production and kitchen gardening.', type: 'KICD', size: '3.7 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'up-cre', title: 'C.R.E / I.R.E / H.R.E (G4-6)', content: 'Rationalized Curriculum: Spiritual and moral growth.', type: 'KICD', size: '2.5 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'up-arts', title: 'Creative Arts (G4-6)', content: 'Rationalized Curriculum: Integrated Music, Art and PE.', type: 'KICD', size: '4.8 MB', date: '2025', category: 'Upper Primary', isActiveContext: true, isSystemDoc: true },
-  { id: 'js-eng', title: 'English (JS)', content: 'Rationalized Design: Literature, oral skills, and linguistics.', type: 'KICD', size: '4.2 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'js-kis', title: 'Kiswahili (JS)', content: 'Mtaala: Fasihi simulizi na andishi.', type: 'KICD', size: '4.0 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'js-math', title: 'Mathematics (JS)', content: 'Rationalized: Advanced algebra, probability, and spatial awareness.', type: 'KICD', size: '5.1 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'js-is', title: 'Integrated Science', content: 'Rationalized: Biological, Physical and Chemical systems.', type: 'KICD', size: '5.8 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'js-ss', title: 'Social Studies (JS)', content: 'Rationalized: African history, geography, and globalization.', type: 'KICD', size: '4.6 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'js-agri', title: 'Agriculture & Nutrition (JS)', content: 'Rationalized: Commercial farming and advanced nutrition.', type: 'KICD', size: '4.3 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'js-pretech', title: 'Pre-Technical Studies', content: 'Rationalized: Coding, materials, and safety.', type: 'KICD', size: '5.5 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'js-health', title: 'Health Education', content: 'Rationalized: Human wellness and environmental health.', type: 'KICD', size: '3.2 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'js-ca', title: 'Creative Arts & Sports', content: 'Rationalized: Performance arts and athletics.', type: 'KICD', size: '5.0 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'js-rel', title: 'Life Skills & Religious Education', content: 'Rationalized: Career guidance and ethical living.', type: 'KICD', size: '3.0 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true },
-  { id: 'ss-path', title: 'Senior School Pathways Guide', content: 'STEM, Social Sciences, and Arts & Sports guidelines.', type: 'KICD', size: '6.2 MB', date: '2025', category: 'Senior School', isActiveContext: true, isSystemDoc: true }
+  { id: 'js-is', title: 'Integrated Science', content: 'Rationalized: Biological, Physical and Chemical systems.', type: 'KICD', size: '5.8 MB', date: '2025', category: 'Junior School', isActiveContext: true, isSystemDoc: true }
 ];
 
-const getStorageKey = (userId: string) => `eduplan_vault_${userId}`;
+const getStorageKey = (userId: string) => `eduplan_vault_v2_${userId}`;
 
 const App = () => {
   const [session, setSession] = useState<any>(null);
@@ -59,17 +33,7 @@ const App = () => {
   const syncLock = useRef(false);
   
   const [currentSow, setCurrentSow] = useState<SOWRow[]>([]);
-  const [currentSowMeta, setCurrentSowMeta] = useState({ 
-    id: '',
-    subject: '', 
-    grade: '', 
-    term: 1, 
-    year: 2025,
-    termStart: new Date().toISOString().split('T')[0],
-    termEnd: '',
-    halfTermStart: '',
-    halfTermEnd: ''
-  });
+  const [currentSowMeta, setCurrentSowMeta] = useState({ id: '', subject: '', grade: '', term: 1, year: 2025, termStart: new Date().toISOString().split('T')[0], termEnd: '', halfTermStart: '', halfTermEnd: '' });
   const [plannerPrefill, setPlannerPrefill] = useState<any>(null);
 
   const [sowHistory, setSowHistory] = useState<SavedSOW[]>([]);
@@ -82,30 +46,17 @@ const App = () => {
   const hydrationAttempted = useRef<string | null>(null);
 
   const resetLocalState = useCallback(() => {
-    setIsHydrated(false);
-    setIsDirty(false);
-    setSlots([]);
-    setSowHistory([]);
-    setPlanHistory([]);
-    setNoteHistory([]);
+    setIsHydrated(false); setIsDirty(false); setSlots([]); setSowHistory([]); setPlanHistory([]); setNoteHistory([]);
     setProfile({ name: '', tscNumber: '', school: '', subjects: [], availableSubjects: [], grades: [], onboardedStaff: [] });
     setDocuments(SYSTEM_CURRICULUM_DOCS);
-    setCurrentSow([]);
-    setCurrentSowMeta({ id: '', subject: '', grade: '', term: 1, year: 2025, termStart: new Date().toISOString().split('T')[0], termEnd: '', halfTermStart: '', halfTermEnd: '' });
   }, []);
 
   useEffect(() => {
     if (!supabase) { setLoading(false); return; }
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+    supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); setLoading(false); });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
-      if (event === 'SIGNED_OUT' || !newSession) {
-        hydrationAttempted.current = null;
-        resetLocalState();
-      }
+      if (event === 'SIGNED_OUT' || !newSession) { hydrationAttempted.current = null; resetLocalState(); }
     });
     return () => subscription.unsubscribe();
   }, [resetLocalState]);
@@ -113,7 +64,7 @@ const App = () => {
   const loadFromCloud = useCallback(async (userId: string) => {
     if (!supabase || hydrationAttempted.current === userId) return;
     setSyncStatus('syncing');
-    setSyncMessage('Accessing Vault...');
+    setSyncMessage('Syncing Documents...');
     try {
       const [profileRes, dataRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
@@ -132,29 +83,20 @@ const App = () => {
         });
       }
 
-      if (dataRes.data) {
-        const d = dataRes.data;
-        // LOAD LOGIC: Support both direct columns AND bundled fallback in 'slots'
-        let remoteSlots = d.slots || [];
-        let remoteSow = d.sow_history || [];
-        let remotePlans = d.plan_history || [];
-        let remoteNotes = d.note_history || [];
+      if (dataRes.data && Array.isArray(dataRes.data.slots)) {
+        const rawSlots = dataRes.data.slots as any[];
+        // Look for the Hidden Storage Tunnel slot
+        const storageSlot = rawSlots.find(s => s.subject === 'SYSTEM_INTERNAL_STORAGE');
+        const timetableSlots = rawSlots.filter(s => s.subject !== 'SYSTEM_INTERNAL_STORAGE');
 
-        // Check if 'slots' is actually a bundle object (our persistent fallback)
-        if (d.slots && !Array.isArray(d.slots) && d.slots.items) {
-          remoteSlots = d.slots.items;
-          if (d.slots.vault) {
-            remoteSow = remoteSow.length ? remoteSow : (d.slots.vault.sow || []);
-            remotePlans = remotePlans.length ? remotePlans : (d.slots.vault.plans || []);
-            remoteNotes = remoteNotes.length ? remoteNotes : (d.slots.vault.notes || []);
-          }
+        if (storageSlot && storageSlot.vault) {
+          const v = storageSlot.vault;
+          setSowHistory(v.sow || []);
+          setPlanHistory(v.plans || []);
+          setNoteHistory(v.notes || []);
+          if (v.docs) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...v.docs]);
         }
-
-        setSlots(remoteSlots);
-        setSowHistory(remoteSow);
-        setPlanHistory(remotePlans);
-        setNoteHistory(remoteNotes);
-        if (d.docs) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...d.docs]);
+        setSlots(timetableSlots);
       }
 
       setIsHydrated(true);
@@ -182,11 +124,11 @@ const App = () => {
 
     syncLock.current = true;
     setSyncStatus('syncing');
-    setSyncMessage('Securing Work to Cloud...');
+    setSyncMessage('Saving Documents...');
     const userId = session.user.id;
     
     try {
-      // 1. Sync Profile
+      // 1. Sync Profile (Working)
       await supabase.from('profiles').upsert({
         id: userId,
         name: profile.name,
@@ -199,54 +141,42 @@ const App = () => {
         updated_at: new Date().toISOString()
       });
 
-      // 2. Sync User Data with "Persistent Fallback" logic
-      // We store the history in a bundle inside 'slots' as a GUARANTEED fallback 
-      // because we know 'slots' column works on your DB.
-      const persistentBundle = {
-        items: slots,
+      // 2. Storage Tunneling: We bundle all documents into a hidden entry inside the working 'slots' column
+      const storageSlot = {
+        day: 'SYSTEM',
+        startTime: '00:00',
+        endTime: '00:00',
+        subject: 'SYSTEM_INTERNAL_STORAGE',
+        grade: 'VAULT_V1',
+        type: 'activity',
         vault: {
           sow: sowHistory,
           plans: planHistory,
-          notes: noteHistory
+          notes: noteHistory,
+          docs: documents.filter(d => !d.isSystemDoc)
         }
       };
 
-      const dataPayload: any = {
-        user_id: userId,
-        slots: persistentBundle, // This ensures it saves even if other columns fail
-        sow_history: sowHistory,
-        plan_history: planHistory,
-        note_history: noteHistory,
-        docs: documents.filter(d => !d.isSystemDoc),
-        updated_at: new Date().toISOString()
-      };
+      const transportSlots = [...slots, storageSlot];
 
-      const { error: dataErr } = await supabase.from('user_data').upsert(dataPayload);
-      
-      if (dataErr && dataErr.code === '42703') {
-        // If specific columns fail, try saving ONLY with the bundle to 'slots'
-        console.warn("Retrying with Persistent Bundle only...");
-        const { error: retryErr } = await supabase.from('user_data').upsert({
-          user_id: userId,
-          slots: persistentBundle,
-          updated_at: new Date().toISOString()
-        });
-        if (retryErr) throw retryErr;
-      } else if (dataErr) {
-        throw dataErr;
-      }
+      const { error: dataErr } = await supabase.from('user_data').upsert({
+        user_id: userId,
+        slots: transportSlots, // Saving everything into the one column we know works
+        updated_at: new Date().toISOString()
+      });
+
+      if (dataErr) throw dataErr;
 
       setSyncStatus('online');
-      setSyncMessage('Vault Secured (Multi-Device Ready)');
+      setSyncMessage('All Documents Secured');
       setLastSynced(new Date().toLocaleTimeString());
       setIsDirty(false);
       
-      // Save local backup
       localStorage.setItem(getStorageKey(userId), JSON.stringify({ slots, sowHistory, planHistory, noteHistory, profile }));
     } catch (err: any) {
       console.error("Cloud write failed:", err);
       setSyncStatus('error');
-      setSyncMessage('Vault Sync Issue (Saved Locally)');
+      setSyncMessage('Cloud Sync Issue (Saved Locally)');
     } finally {
       syncLock.current = false;
     }
@@ -258,10 +188,7 @@ const App = () => {
     return () => clearTimeout(timer);
   }, [isDirty, syncToCloud, isHydrated]);
 
-  const wrapUpdate = (fn: Function) => (val: any) => { 
-    fn(val); 
-    if (isHydrated) setIsDirty(true); 
-  };
+  const wrapUpdate = (fn: Function) => (val: any) => { fn(val); if (isHydrated) setIsDirty(true); };
 
   const handleLogout = async () => { if (confirm("Sign out of EduPlan?")) { if (supabase) await supabaseSignOut(); } };
 
@@ -279,22 +206,19 @@ const App = () => {
               syncStatus === 'syncing' ? 'bg-amber-50 border border-amber-100' : 
               'bg-emerald-50 border border-emerald-100'
             }`}>
-              <div className={`w-2 h-2 rounded-full ${
-                syncStatus === 'error' ? 'bg-red-500' : 
-                syncStatus === 'syncing' ? 'bg-amber-500 animate-bounce' : 
-                'bg-emerald-500'
-              }`}></div>
+              <div className={`w-2 h-2 rounded-full ${syncStatus === 'error' ? 'bg-red-500' : syncStatus === 'syncing' ? 'bg-amber-500 animate-bounce' : 'bg-emerald-500'}`}></div>
               <span className={`text-[10px] font-black uppercase tracking-widest ${syncStatus === 'error' ? 'text-red-600' : 'text-slate-700'}`}>
                 {syncMessage}
               </span>
             </div>
+            {lastSynced && <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest hidden sm:inline">Synced: {lastSynced}</span>}
           </div>
           <div className="flex items-center gap-4">
              <div className="text-right hidden sm:block">
                 <p className="text-[11px] font-black text-slate-800 uppercase leading-none mb-1">{profile.name || 'Teacher'}</p>
-                <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none">{profile.school || 'Private Institution'}</p>
+                <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest leading-none">{profile.school || 'EduPlan Pro'}</p>
              </div>
-             <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.id}`} className="w-10 h-10 rounded-xl border-2 border-indigo-50 shadow-sm" alt="Profile" />
+             <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${session.user.id}`} className="w-10 h-10 rounded-xl border-2 border-indigo-50 shadow-sm" />
           </div>
         </header>
 
