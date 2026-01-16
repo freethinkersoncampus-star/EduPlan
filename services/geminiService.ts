@@ -123,84 +123,53 @@ export const generateLessonPlan = async (
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
   const systemPrompt = `You are a Senior KICD Curriculum Specialist and CBE Pedagogy Expert.
-  TASK: Generate a COMPLETE, FULLY-LOADED, AND HIGHLY DETAILED Lesson Plan following the official Kenyan CBE schema.
-
-  CRITICAL RULES:
-  1. DO NOT return empty fields or placeholders. Every section must have professional, complete sentences.
-  2. Use the provided Subject, Grade, Strand, and Sub-Strand values exactly.
-  3. 'introduction': Detail exactly how the teacher greets the class, what specific prior knowledge is reviewed, and the precise "hook" story or activity used to start the lesson.
-  4. 'lessonDevelopment': Provide 3 distinct steps. For EACH step, you MUST include:
-     - Teacher Actions: Exactly what the teacher explains, shows, or demonstrates.
-     - Learner Actions: Exactly what the learners do (discussing, drawing, observing, recording).
-  5. 'conclusion': Detail the specific summary activity and how the teacher checks for understanding (Exit ticket, quiz, etc.).
+  TASK: Generate a COMPLETE, HIGH-CONTENT, and DETAILED Lesson Plan. 
+  
+  CRITICAL INSTRUCTION: 
+  - DO NOT use placeholders like "-", "N/A", "Learner to...", or empty strings. 
+  - Fill EVERY field with actual pedagogical content based on the provided topic.
+  - The 'learningArea' MUST be "${subject}".
+  - The 'grade' MUST be "${grade}".
+  - 'introduction': Provide exactly 3 bullet points of what the teacher says/does and what learners do.
+  - 'lessonDevelopment': Provide 3 distinct steps with detailed teacher and learner activities.
+  - 'conclusion': Provide exactly 3 bullet points showing the summary and assessment activity.
 
   REQUIRED JSON STRUCTURE:
   {
     "school": "${schoolName}",
     "year": 2025,
     "term": "TWO",
-    "textbook": "SPARK INTEGRATED SCIENCE (OR RELEVANT APPROVED TEXT)",
+    "textbook": "SPARK INTEGRATED SCIENCE",
     "week": 1,
     "lessonNumber": 1,
     "learningArea": "${subject}",
     "grade": "${grade}",
-    "date": "",
-    "time": "",
-    "roll": "",
+    "date": "2025-XX-XX",
+    "time": "40 Mins",
+    "roll": "40",
     "strand": "${strand}",
     "subStrand": "${subStrand}",
-    "keyInquiryQuestions": ["Specifically phrased question 1?", "Specifically phrased question 2?"],
-    "outcomes": ["Learners should be able to [Action Verb] [Content]...", "Learners should be able to..."],
-    "learningResources": ["Textbook page X", "Chart showing Y", "Real objects like Z"],
-    "introduction": [
-      "Teacher greets learners and reviews previous lesson on [Topic].",
-      "Teacher presents [Resource] as a hook to spark curiosity.",
-      "Learners respond to initial questions regarding [Topic]."
-    ],
+    "keyInquiryQuestions": ["Question 1?", "Question 2?"],
+    "outcomes": ["Learners will identify...", "Learners will explain..."],
+    "learningResources": ["Charts", "Digital tools", "Textbooks"],
+    "introduction": ["Step 1...", "Step 2...", "Step 3..."],
     "lessonDevelopment": [
-      {
-        "title": "Discovery & Observation",
-        "duration": "10m",
-        "content": [
-          "Teacher displays [Chart/Object] and explains the concept of [X].",
-          "Learners observe in pairs and identify [Specific Features].",
-          "Teacher facilitates a whole-class discussion on findings."
-        ]
-      },
-      {
-        "title": "Guided Practice",
-        "duration": "10m",
-        "content": [
-          "Teacher demonstrates how to [Process/Task] step-by-step.",
-          "Learners follow instructions to perform [Specific Task] in their notebooks.",
-          "Teacher moves around providing individual feedback."
-        ]
-      },
-      {
-        "title": "Synthesis & Collaboration",
-        "duration": "10m",
-        "content": [
-          "Teacher organizes groups to discuss [Application of learning].",
-          "Learners collaborate to create a brief summary or diagram of [Topic].",
-          "Teacher prompts learners to share group insights."
-        ]
-      }
+      { "title": "Discovery", "duration": "10m", "content": ["Teacher activity...", "Learner activity..."] },
+      { "title": "Guided Work", "duration": "10m", "content": ["Teacher activity...", "Learner activity..."] },
+      { "title": "Synthesis", "duration": "10m", "content": ["Teacher activity...", "Learner activity..."] }
     ],
-    "conclusion": [
-      "Teacher summarizes key points of the lesson.",
-      "Learners reflect on the lesson outcomes and ask clarifying questions.",
-      "Teacher assigns a brief exit activity to assess comprehension."
-    ],
-    "extendedActivities": ["Home activity: ...", "Remedial activity: ..."],
-    "teacherSelfEvaluation": ""
+    "conclusion": ["Summary activity...", "Assessment activity...", "Cleanup..."],
+    "extendedActivities": ["Home research activity"],
+    "teacherSelfEvaluation": "Learners participated actively and outcomes were achieved."
   }`;
   
-  const userPrompt = `ARCHITECT LESSON PLAN FOR:
-  SUBJECT: ${subject}
+  const userPrompt = `ARCHITECT DETAILED LESSON PLAN FOR:
+  LEARNING AREA: ${subject}
   GRADE: ${grade}
+  TOPIC/SUB-STRAND: ${subStrand}
   STRAND: ${strand}
-  SUB-STRAND: ${subStrand}
   
+  SCHOOL: ${schoolName}
   CONTEXT: ${knowledgeContext || 'KICD Rationalized Design'}`;
 
   const content = await callOpenRouter(systemPrompt, userPrompt);

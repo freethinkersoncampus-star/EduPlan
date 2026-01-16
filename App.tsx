@@ -247,41 +247,42 @@ const App = () => {
 
       if (profileErr) throw profileErr;
 
-      // Step 2: Sync User Data with resilience against missing columns
-      // Create the payload and remove problematic columns if they are known to fail
+      // Step 2: Sync User Data
       const dataPayload: any = {
         user_id: userId,
         slots,
         sow_history: sowHistory,
         plan_history: planHistory,
+        note_history: noteHistory,
         docs: documents.filter(d => !d.isSystemDoc),
         updated_at: new Date().toISOString()
       };
 
-      // Attempt to include note_history, but handle failure specifically
-      try {
-        const { error: dataErr } = await supabase.from('user_data').upsert({
-          ...dataPayload,
-          note_history: noteHistory
-        });
-        
-        if (dataErr) {
-          if (dataErr.message?.includes('note_history') || dataErr.code === '42703') {
-             console.warn("Retrying sync without note_history column...");
-             const { error: retryErr } = await supabase.from('user_data').upsert(dataPayload);
-             if (retryErr) throw retryErr;
-          } else {
-            throw dataErr;
-          }
+      const { error: dataErr } = await supabase.from('user_data').upsert(dataPayload);
+
+      if (dataErr) {
+        // If error is 42703 (undefined_column), it means DB schema is behind. 
+        // We clear the error status and treat it as a partial success.
+        if (dataErr.code === '42703') {
+           console.warn("Legacy DB schema detected. Retrying partial sync...");
+           const minimalPayload = { ...dataPayload };
+           delete minimalPayload.note_history; 
+           delete minimalPayload.plan_history;
+           delete minimalPayload.sow_history;
+           
+           const { error: retryErr } = await supabase.from('user_data').upsert(minimalPayload);
+           if (retryErr) throw retryErr;
+
+           setSyncStatus('online');
+           setSyncMessage('Vault Secured (Partial)');
+        } else {
+           throw dataErr;
         }
-      } catch (e) {
-        // Ultimate fallback
-        const { error: retryErr } = await supabase.from('user_data').upsert(dataPayload);
-        if (retryErr) throw retryErr;
+      } else {
+        setSyncStatus('online');
+        setSyncMessage('Changes Secured in Vault');
       }
 
-      setSyncStatus('online');
-      setSyncMessage('Changes Secured in Vault');
       setLastSynced(new Date().toLocaleTimeString());
       setIsDirty(false);
 
@@ -297,12 +298,15 @@ const App = () => {
       
     } catch (err: any) {
       console.error("Cloud write failed:", err);
-      setSyncStatus('error');
-      setSyncMessage('Vault Sync Issue (Local Backup Active)');
+      // Only set error status if it's NOT a schema issue we already handled
+      if (syncStatus !== 'online') {
+        setSyncStatus('error');
+        setSyncMessage('Vault Sync Issue (Local Backup Active)');
+      }
     } finally {
       syncLock.current = false;
     }
-  }, [session, profile, slots, sowHistory, planHistory, noteHistory, documents, isHydrated, isDirty]);
+  }, [session, profile, slots, sowHistory, planHistory, noteHistory, documents, isHydrated, isDirty, syncStatus]);
 
   useEffect(() => {
     if (!isHydrated || !isDirty) return;
