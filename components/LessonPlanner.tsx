@@ -280,7 +280,7 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                               <h4 className="font-black uppercase tracking-widest mb-2 underline">Specific Learning Outcomes:</h4>
                               <p className="font-bold italic mb-2">By the end of the lesson, learners should be able to:</p>
                               <ul className="list-disc pl-5 space-y-1">
-                                {plan.outcomes.map((o, idx) => <li key={idx} className="font-medium text-slate-700 print:text-black">{o}</li>)}
+                                {(plan.outcomes || []).map((o, idx) => <li key={idx} className="font-medium text-slate-700 print:text-black">{o}</li>)}
                               </ul>
                            </div>
 
@@ -294,7 +294,7 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                            <div>
                               <h4 className="font-black uppercase tracking-widest mb-2 underline">Learning Resources:</h4>
                               <ul className="list-disc pl-5 space-y-1 font-medium italic">
-                                {plan.learningResources.map((r, i) => <li key={i}>{r}</li>)}
+                                {(plan.learningResources || []).map((r, i) => <li key={i}>{r}</li>)}
                               </ul>
                            </div>
 
@@ -311,11 +311,11 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
 
                                  <div className="space-y-6">
                                     <h5 className="font-black underline">Lesson Development (30 minutes)</h5>
-                                    {plan.lessonDevelopment.map((step, idx) => (
+                                    {(plan.lessonDevelopment || []).map((step, idx) => (
                                        <div key={idx} className="ml-2">
                                           <p className="font-black mb-1">Step {idx + 1}: {step.title} ({step.duration})</p>
                                           <ul className="list-disc pl-5 space-y-1">
-                                             {step.content.map((item, subIdx) => <li key={subIdx}>{item}</li>)}
+                                             {(step.content || []).map((item, subIdx) => <li key={subIdx}>{item}</li>)}
                                           </ul>
                                        </div>
                                     ))}

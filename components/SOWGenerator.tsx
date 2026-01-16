@@ -277,7 +277,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
               </div>
             </div>
 
-            {/* Restored Date Configuration Row */}
+            {/* Date Configuration Row - Ensured all 4 fields are here */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
               <div>
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Term Start</label>
@@ -319,13 +319,19 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
         )}
       </div>
 
-      {!showLibrary && persistedSow.length > 0 && (
+      {/* Re-enabled persistent Status Bar area during generation */}
+      {!showLibrary && (persistedSow.length > 0 || loading) && (
         <div className="space-y-6 animate-in fade-in duration-500">
           <div className="bg-white p-4 md:p-6 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-4 md:gap-8 print:hidden">
             <div className="flex-1 w-full">
-               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Architecting: {persistedSow.length} Rows Generated</span>
+               <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
+                 {loading ? `Architecting Pipeline: ${persistedSow.length} Lessons Compiled` : `Progress: ${persistedSow.length} Rows Generated`}
+               </span>
                <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                  <div className="h-full bg-indigo-500 transition-all duration-700" style={{ width: `${(persistedSow.length / (13 * lessonsPerWeek)) * 100}%` }}></div>
+                  <div 
+                    className={`h-full ${loading ? 'bg-indigo-400 animate-pulse' : 'bg-indigo-500'} transition-all duration-700`} 
+                    style={{ width: `${Math.min(100, (persistedSow.length / (13 * lessonsPerWeek)) * 100)}%` }}
+                  ></div>
                </div>
             </div>
             <div className="flex gap-3 w-full md:w-auto">
