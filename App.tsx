@@ -88,6 +88,7 @@ const App = () => {
   
   const [currentSow, setCurrentSow] = useState<SOWRow[]>([]);
   const [currentSowMeta, setCurrentSowMeta] = useState({ 
+    id: '',
     subject: '', 
     grade: '', 
     term: 1, 
@@ -119,6 +120,7 @@ const App = () => {
     setDocuments(SYSTEM_CURRICULUM_DOCS);
     setCurrentSow([]);
     setCurrentSowMeta({ 
+      id: '',
       subject: '', 
       grade: '', 
       term: 1, 
@@ -156,6 +158,20 @@ const App = () => {
     setSyncMessage('Opening Vault...');
     
     try {
+      // Prioritize Local Backup for instant UI response
+      const userSpecificKey = getStorageKey(userId);
+      const localBackup = localStorage.getItem(userSpecificKey);
+      if (localBackup) {
+        const parsed = JSON.parse(localBackup);
+        if (parsed.profile) setProfile(parsed.profile);
+        if (parsed.slots) setSlots(parsed.slots);
+        if (parsed.sowHistory) setSowHistory(parsed.sowHistory);
+        if (parsed.planHistory) setPlanHistory(parsed.planHistory);
+        if (parsed.noteHistory) setNoteHistory(parsed.noteHistory);
+        if (parsed.documents) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...parsed.documents]);
+      }
+
+      // Then fetch from Cloud to merge/overwrite
       const [profileRes, dataRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
         supabase.from('user_data').select('*').eq('user_id', userId).maybeSingle()
@@ -182,18 +198,6 @@ const App = () => {
         if (d.plan_history) setPlanHistory(d.plan_history);
         if (d.note_history) setNoteHistory(d.note_history);
         if (d.docs) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...d.docs]);
-      } else {
-        const userSpecificKey = getStorageKey(userId);
-        const localBackup = localStorage.getItem(userSpecificKey);
-        if (localBackup) {
-          const parsed = JSON.parse(localBackup);
-          if (parsed.profile) setProfile(parsed.profile);
-          if (parsed.slots) setSlots(parsed.slots);
-          if (parsed.sowHistory) setSowHistory(parsed.sowHistory);
-          if (parsed.planHistory) setPlanHistory(parsed.planHistory);
-          if (parsed.noteHistory) setNoteHistory(parsed.noteHistory);
-          if (parsed.documents) setDocuments([...SYSTEM_CURRICULUM_DOCS, ...parsed.documents]);
-        }
       }
 
       setIsHydrated(true);
@@ -228,6 +232,7 @@ const App = () => {
     const userId = session.user.id;
     
     try {
+      // Step 1: Sync Profiles
       const { error: profileErr } = await supabase.from('profiles').upsert({
         id: userId,
         name: profile.name,
@@ -242,23 +247,37 @@ const App = () => {
 
       if (profileErr) throw profileErr;
 
-      const { error: dataErr } = await supabase.from('user_data').upsert({
+      // Step 2: Sync User Data with resilience against missing columns
+      // Create the payload and remove problematic columns if they are known to fail
+      const dataPayload: any = {
         user_id: userId,
         slots,
         sow_history: sowHistory,
         plan_history: planHistory,
-        note_history: noteHistory,
         docs: documents.filter(d => !d.isSystemDoc),
         updated_at: new Date().toISOString()
-      });
+      };
 
-      if (dataErr) {
-        // Handle database legacy schema issues (missing columns) gracefully
-        if (dataErr.message?.includes('note_history')) {
-          console.warn("Legacy database detected. Skipping cloud notes sync.");
-        } else {
-          throw dataErr;
+      // Attempt to include note_history, but handle failure specifically
+      try {
+        const { error: dataErr } = await supabase.from('user_data').upsert({
+          ...dataPayload,
+          note_history: noteHistory
+        });
+        
+        if (dataErr) {
+          if (dataErr.message?.includes('note_history') || dataErr.code === '42703') {
+             console.warn("Retrying sync without note_history column...");
+             const { error: retryErr } = await supabase.from('user_data').upsert(dataPayload);
+             if (retryErr) throw retryErr;
+          } else {
+            throw dataErr;
+          }
         }
+      } catch (e) {
+        // Ultimate fallback
+        const { error: retryErr } = await supabase.from('user_data').upsert(dataPayload);
+        if (retryErr) throw retryErr;
       }
 
       setSyncStatus('online');
@@ -266,6 +285,7 @@ const App = () => {
       setLastSynced(new Date().toLocaleTimeString());
       setIsDirty(false);
 
+      // Always update local backup as well
       localStorage.setItem(getStorageKey(userId), JSON.stringify({ 
         slots, 
         sowHistory, 
@@ -286,7 +306,7 @@ const App = () => {
 
   useEffect(() => {
     if (!isHydrated || !isDirty) return;
-    const timer = setTimeout(() => syncToCloud(), 5000);
+    const timer = setTimeout(() => syncToCloud(), 3000);
     return () => clearTimeout(timer);
   }, [isDirty, syncToCloud, isHydrated]);
 

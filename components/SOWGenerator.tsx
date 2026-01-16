@@ -12,7 +12,7 @@ interface SOWGeneratorProps {
   setPersistedSow: (sow: SOWRow[]) => void;
   persistedMeta: any;
   setPersistedMeta: (meta: any) => void;
-  onPrefillPlanner: (data) => void;
+  onPrefillPlanner: (data: any) => void;
   userProfile: UserProfile;
   history: SavedSOW[];
   setHistory: (history: SavedSOW[]) => void;
@@ -38,6 +38,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   
   const [formData, setFormData] = useState({
+    id: persistedMeta?.id || '',
     subject: persistedMeta?.subject || '',
     grade: persistedMeta?.grade || '',
     term: persistedMeta?.term || 1,
@@ -193,8 +194,12 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       });
 
       const datedSow = calculateDatesFromTimetable(finalSow);
+      
+      // Generation is a new entity until saved
+      const newMeta = { ...formData, id: '' };
+      setFormData(newMeta);
       setPersistedSow(datedSow);
-      setPersistedMeta(formData);
+      setPersistedMeta(newMeta);
       
     } catch (err: any) {
       console.error(err);
@@ -203,6 +208,42 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       setLoading(false);
       setLoadingStatus('');
     }
+  };
+
+  const handleSaveSow = () => {
+    if (persistedSow.length === 0) return;
+    
+    // Check if we are updating an existing archive entry
+    const existingId = formData.id;
+    let newHistory = [...history];
+    
+    if (existingId) {
+      const index = newHistory.findIndex(item => item.id === existingId);
+      if (index !== -1) {
+        newHistory[index] = {
+          ...newHistory[index],
+          ...formData,
+          data: persistedSow
+        };
+        setHistory(newHistory);
+        alert("Archived Scheme Updated.");
+        return;
+      }
+    }
+
+    // Otherwise, create a new one
+    const newId = Date.now().toString();
+    const newMeta = { ...formData, id: newId };
+    const entry = { 
+      ...newMeta, 
+      dateCreated: new Date().toLocaleDateString(), 
+      data: persistedSow 
+    };
+    
+    setFormData(newMeta);
+    setPersistedMeta(newMeta);
+    setHistory([entry, ...history]);
+    alert("Saved to Vault.");
   };
 
   const toggleCompletion = (index: number) => {
@@ -307,6 +348,14 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                   <button onClick={(e) => handleDeleteHistory(item.id, e)} className="text-slate-200 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100 p-1"><i className="fas fa-trash-alt text-[10px]"></i></button>
                 </div>
                 <h4 className="font-black text-slate-800 uppercase text-xs tracking-tight">{item.subject} ({item.grade})</h4>
+                <div className="mt-4 flex items-center gap-2">
+                   <div className="h-1 flex-1 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-indigo-400" style={{ width: `${Math.round((item.data.filter(r => r.isCompleted).length / item.data.filter(r => !r.isBreak).length) * 100)}%` }}></div>
+                   </div>
+                   <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">
+                      {Math.round((item.data.filter(r => r.isCompleted).length / item.data.filter(r => !r.isBreak).length) * 100)}%
+                   </span>
+                </div>
               </div>
             ))}
             {history.length === 0 && <div className="col-span-full py-20 text-center text-slate-300 font-black uppercase tracking-widest text-[10px]">No archived schemes.</div>}
@@ -337,11 +386,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
             <div className="flex gap-3 w-full md:w-auto">
               <button onClick={handlePrint} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest">PRINT</button>
               <button onClick={handleDownloadDocx} className="bg-indigo-600 text-white px-8 py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest">DOCX</button>
-              <button onClick={() => {
-                const entry = { id: Date.now().toString(), dateCreated: new Date().toLocaleDateString(), ...formData, data: persistedSow };
-                setHistory([entry, ...history]);
-                alert("Saved to Vault.");
-              }} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest">SAVE</button>
+              <button onClick={handleSaveSow} className="bg-emerald-600 text-white px-8 py-4 rounded-2xl font-black text-[9px] uppercase tracking-widest">SAVE</button>
             </div>
           </div>
 

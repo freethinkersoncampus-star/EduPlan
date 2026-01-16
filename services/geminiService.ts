@@ -122,8 +122,45 @@ export const generateLessonPlan = async (
   schoolName: string,
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
-  const systemPrompt = `KICD Lesson Plan Specialist. Output detailed JSON following KICD schema.`;
-  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TOPIC: ${subStrand}. SCHOOL: ${schoolName}`;
+  const systemPrompt = `You are a Senior KICD Curriculum Specialist and CBE Pedagogy Expert.
+  TASK: Generate a COMPREHENSIVE and DETAILED Lesson Plan following the official CBE schema.
+  
+  CORE REQUIREMENT:
+  - 'outcomes': Must be measurable (Learner to identify, explain, demonstrate, etc.)
+  - 'introduction': Do NOT just say "Teacher introduces". Detail the specific greeting, review of previous knowledge, and the hook to engage learners.
+  - 'lessonDevelopment': For each step, explicitly detail:
+      1. What the teacher DOES (Teacher explains, demonstrates, organizes groups).
+      2. What the learner DOES (Learners discuss, observe, record, manipulate materials).
+  - 'conclusion': Detail how learning is summarized and how learners are assessed/reflected upon.
+
+  MANDATORY JSON SCHEMA:
+  {
+    "school": "string",
+    "year": number,
+    "term": "string",
+    "textbook": "string",
+    "week": number,
+    "lessonNumber": number,
+    "learningArea": "string",
+    "grade": "string",
+    "date": "string",
+    "time": "string",
+    "roll": "string",
+    "strand": "string",
+    "subStrand": "string",
+    "keyInquiryQuestions": ["string"],
+    "outcomes": ["string"],
+    "learningResources": ["string"],
+    "introduction": ["string"],
+    "lessonDevelopment": [
+      { "title": "string", "duration": "string", "content": ["string"] }
+    ],
+    "conclusion": ["string"],
+    "extendedActivities": ["string"],
+    "teacherSelfEvaluation": "string"
+  }`;
+  
+  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | STRAND: ${strand} | SUB-STRAND: ${subStrand}. SCHOOL: ${schoolName}. CONTEXT: ${knowledgeContext || 'KICD Rationalized'}`;
   const content = await callOpenRouter(systemPrompt, userPrompt);
   return extractJSON(content) as LessonPlan;
 };

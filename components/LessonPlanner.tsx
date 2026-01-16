@@ -303,18 +303,18 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                               <h4 className="font-black uppercase tracking-widest mb-4 border-b border-black pb-1">Organization of Learning:</h4>
                               
                               <div className="space-y-6">
-                                 <div>
-                                    <h5 className="font-black underline mb-2">Introduction (5 minutes)</h5>
+                                 <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                                    <h5 className="font-black underline mb-2 uppercase text-[10px]">Introduction (5 minutes)</h5>
                                     <ul className="list-disc pl-5 space-y-1">
                                        {(plan.introduction || []).map((item, idx) => <li key={idx}>{item}</li>)}
                                     </ul>
                                  </div>
 
                                  <div className="space-y-6">
-                                    <h5 className="font-black underline">Lesson Development (30 minutes)</h5>
+                                    <h5 className="font-black underline uppercase text-[10px]">Lesson Development (30 minutes)</h5>
                                     {(plan.lessonDevelopment || []).map((step, idx) => (
-                                       <div key={idx} className="ml-2">
-                                          <p className="font-black mb-1">Step {idx + 1}: {step?.title || 'Procedure'} ({step?.duration || '10m'})</p>
+                                       <div key={idx} className="ml-2 p-4 border-l-2 border-indigo-100 bg-white shadow-sm rounded-r-2xl">
+                                          <p className="font-black mb-1 text-indigo-700 uppercase text-[10px]">Step {idx + 1}: {step?.title || 'Procedure'} ({step?.duration || '10m'})</p>
                                           <ul className="list-disc pl-5 space-y-1">
                                              {(step?.content || []).map((item, subIdx) => <li key={subIdx}>{item}</li>)}
                                           </ul>
@@ -322,8 +322,8 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                                     ))}
                                  </div>
 
-                                 <div>
-                                    <h5 className="font-black underline mb-2">Conclusion (5 minutes)</h5>
+                                 <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+                                    <h5 className="font-black underline mb-2 uppercase text-[10px]">Conclusion (5 minutes)</h5>
                                     <ul className="list-disc pl-5 space-y-1">
                                        {(plan.conclusion || []).map((item, idx) => <li key={idx}>{item}</li>)}
                                     </ul>
@@ -367,7 +367,7 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                              <button onClick={handleDownloadNotesDocx} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition shadow-lg shadow-emerald-100">
                                 <i className="fas fa-file-word"></i>
                              </button>
-                             <button onClick={saveCurrentNotes} className="bg-emerald-50 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition shadow-lg shadow-emerald-100">
+                             <button onClick={saveCurrentNotes} className="bg-emerald-600 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700 transition shadow-lg shadow-emerald-100 border border-emerald-500">
                                 <i className="fas fa-save mr-2"></i> Save
                              </button>
                            </div>
