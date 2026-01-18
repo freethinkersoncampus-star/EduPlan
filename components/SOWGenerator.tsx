@@ -1,3 +1,4 @@
+
 // Add React import for React.FC and React.MouseEvent types
 import React, { useState, useEffect, useMemo } from 'react';
 import { generateSOWChunk } from '../services/geminiService';
@@ -120,10 +121,14 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     setPersistedSow([]); 
     
     try {
+      // REDUCED CHUNK SIZE: 2 weeks per call to prevent RESPONSE_TOO_LONG error
       const chunks = [
-        { start: 1, end: 4 },
-        { start: 5, end: 8 },
-        { start: 9, end: 12 }
+        { start: 1, end: 2 },
+        { start: 3, end: 4 },
+        { start: 5, end: 6 },
+        { start: 7, end: 8 },
+        { start: 9, end: 10 },
+        { start: 11, end: 12 }
       ];
 
       let allLessons: SOWRow[] = [];
@@ -148,10 +153,11 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
             break; 
           } catch (e: any) {
             if (e.message === "API_KEY_RESET_REQUIRED") {
-               if (window.aistudio?.openSelectKey) {
+               const aiStudio = (window as any).aistudio;
+               if (aiStudio?.openSelectKey) {
                  alert("Your Professional AI Key needs re-authentication. Please select it again.");
-                 await window.aistudio.openSelectKey();
-                 continue; // Retry with new key
+                 await aiStudio.openSelectKey();
+                 continue; 
                }
             }
             retries++;
@@ -163,6 +169,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
 
         allLessons = [...allLessons, ...chunkResult];
         
+        // Update the UI progressively
         const intermediaryEnriched: SOWRow[] = allLessons.map(row => ({
           ...row,
           isCompleted: false,
@@ -171,6 +178,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
         setPersistedSow(calculateDatesFromTimetable(intermediaryEnriched));
       }
 
+      // Final pass to insert Half Term Break correctly
       const finalSow: SOWRow[] = [];
       let breakInserted = false;
       
