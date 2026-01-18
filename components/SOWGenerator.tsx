@@ -121,7 +121,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     setPersistedSow([]); 
     
     try {
-      // REDUCED CHUNK SIZE: 2 weeks per call to prevent RESPONSE_TOO_LONG error
+      // Small chunks to avoid RESPONSE_TOO_LONG
       const chunks = [
         { start: 1, end: 2 },
         { start: 3, end: 4 },
@@ -134,7 +134,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       let allLessons: SOWRow[] = [];
 
       for (const chunk of chunks) {
-        setLoadingStatus(`Architecting Weeks ${chunk.start}-${chunk.end}...`);
+        setLoadingStatus(`Architecting Term ${formData.term}, Weeks ${chunk.start}-${chunk.end}...`);
         
         let retries = 0;
         let chunkResult: SOWRow[] = [];
@@ -155,21 +155,20 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
             if (e.message === "API_KEY_RESET_REQUIRED") {
                const aiStudio = (window as any).aistudio;
                if (aiStudio?.openSelectKey) {
-                 alert("Your Professional AI Key needs re-authentication. Please select it again.");
+                 alert("Your Professional AI Key needs re-authentication.");
                  await aiStudio.openSelectKey();
                  continue; 
                }
             }
             retries++;
             if (retries === 2) throw e;
-            setLoadingStatus(`Syncing Issue. Retrying Weeks ${chunk.start}-${chunk.end}...`);
+            setLoadingStatus(`Retrying Weeks ${chunk.start}-${chunk.end}...`);
             await new Promise(r => setTimeout(r, 2000));
           }
         }
 
         allLessons = [...allLessons, ...chunkResult];
         
-        // Update the UI progressively
         const intermediaryEnriched: SOWRow[] = allLessons.map(row => ({
           ...row,
           isCompleted: false,
@@ -178,7 +177,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
         setPersistedSow(calculateDatesFromTimetable(intermediaryEnriched));
       }
 
-      // Final pass to insert Half Term Break correctly
       const finalSow: SOWRow[] = [];
       let breakInserted = false;
       
@@ -191,8 +189,8 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
             lesson: 0, 
             strand: 'HALF TERM BREAK', 
             subStrand: '-', 
-            learningOutcomes: 'Academic Review & Assessment', 
-            teachingExperiences: 'Learner reflection and remedial activities', 
+            learningOutcomes: 'Academic Review', 
+            teachingExperiences: 'Reflection', 
             keyInquiryQuestions: '-', 
             learningResources: '-', 
             assessmentMethods: '-', 
@@ -206,15 +204,13 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       });
 
       const datedSow = calculateDatesFromTimetable(finalSow);
-      
       const newMeta = { ...formData, id: '' };
       setFormData(newMeta);
       setPersistedSow(datedSow);
       setPersistedMeta(newMeta);
       
     } catch (err: any) {
-      console.error(err);
-      alert("Vault Sync Interrupted: " + (err.message || "Please check your internet and try again."));
+      alert("Vault Sync Interrupted: " + (err.message || "Please check your internet."));
     } finally {
       setLoading(false);
       setLoadingStatus('');
@@ -223,18 +219,13 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
 
   const handleSaveSow = () => {
     if (persistedSow.length === 0) return;
-    
     const existingId = formData.id;
     let newHistory = [...history];
     
     if (existingId) {
       const index = newHistory.findIndex(item => item.id === existingId);
       if (index !== -1) {
-        newHistory[index] = {
-          ...newHistory[index],
-          ...formData,
-          data: persistedSow
-        };
+        newHistory[index] = { ...newHistory[index], ...formData, data: persistedSow };
         setHistory(newHistory);
         alert("Archived Scheme Updated.");
         return;
@@ -243,12 +234,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
 
     const newId = Date.now().toString();
     const newMeta = { ...formData, id: newId };
-    const entry = { 
-      ...newMeta, 
-      dateCreated: new Date().toLocaleDateString(), 
-      data: persistedSow 
-    };
-    
+    const entry = { ...newMeta, dateCreated: new Date().toLocaleDateString(), data: persistedSow };
     setFormData(newMeta);
     setPersistedMeta(newMeta);
     setHistory([entry, ...history]);
@@ -272,7 +258,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
 
   const handleDeleteHistory = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm("Permanently delete this saved Scheme of Work?")) {
+    if (confirm("Delete this saved Scheme?")) {
       const newHistory = history.filter(item => item.id !== id);
       setHistory(newHistory);
     }
@@ -284,7 +270,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
           <div>
             <h2 className="text-2xl md:text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none text-black">SOW Architect</h2>
-            <p className="text-[9px] text-slate-400 font-bold tracking-[0.2em] mt-1.5 uppercase">KICD Rationalized Engine</p>
+            <p className="text-[9px] text-slate-400 font-bold tracking-[0.2em] mt-1.5 uppercase">40/40/20 Syllabus Engine</p>
           </div>
           <button onClick={() => setShowLibrary(!showLibrary)} className="w-full sm:w-auto text-[10px] font-black text-indigo-600 bg-indigo-50 px-6 py-3 rounded-xl uppercase tracking-widest hover:bg-indigo-100 transition">
             {showLibrary ? "← CONFIG" : `SOW ARCHIVE (${history.length})`}
@@ -314,11 +300,11 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                 <input type="number" className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 font-black text-[11px] outline-none" value={formData.year} onChange={e => setFormData({...formData, year: parseInt(e.target.value)})} />
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Term</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Term Selection</label>
                 <select className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 font-black text-[11px] outline-none" value={formData.term} onChange={e => setFormData({...formData, term: parseInt(e.target.value)})}>
-                  <option value={1}>Term 1</option>
-                  <option value={2}>Term 2</option>
-                  <option value={3}>Term 3</option>
+                  <option value={1}>Term 1 (First 40%)</option>
+                  <option value={2}>Term 2 (Next 40%)</option>
+                  <option value={3}>Term 3 (Final 20%)</option>
                 </select>
               </div>
             </div>
@@ -343,7 +329,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
             </div>
 
             <button onClick={handleGenerate} disabled={loading || !formData.subject} className="w-full bg-indigo-600 text-white py-6 rounded-3xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl hover:bg-indigo-700 transition disabled:opacity-30">
-               {loading ? `ARCHITECTING... ${loadingStatus}` : "CONSTRUCT KICD SCHEME (SEQUENTIAL)"}
+               {loading ? `ARCHITECTING... ${loadingStatus}` : "CONSTRUCT RATIONALIZED SCHEME"}
             </button>
           </div>
         )}
@@ -404,7 +390,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
               <h1 className="text-lg md:text-2xl font-black uppercase underline decoration-2 mb-4 leading-relaxed text-black">
                 {formData.year} {formData.subject} {formData.grade} SCHEMES OF WORK
               </h1>
-              <p className="text-sm font-black uppercase tracking-[0.2em] text-slate-500">TERM {getTermString(formData.term)} — 2025 RATIONALIZED</p>
+              <p className="text-sm font-black uppercase tracking-[0.2em] text-slate-500">TERM {getTermString(formData.term)} — CBE RATIONALIZED</p>
             </div>
 
             <div className="overflow-x-auto relative custom-scrollbar">

@@ -59,7 +59,7 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
       setPlan(result);
     } catch (err: any) { 
       console.error(err);
-      alert("AI Service Interrupted. Please check your internet connection.");
+      alert("AI Service Interrupted: " + (err.message || "Please check connection."));
     } finally { setLoadingPlan(false); }
   };
 
@@ -131,7 +131,7 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
              </div>
              <div className="flex flex-col sm:flex-row gap-4 border-t pt-8">
                 <button onClick={() => handleGeneratePlan()} disabled={loadingPlan || !isFormValid} className="flex-1 bg-indigo-600 text-white font-black py-5 rounded-3xl shadow-2xl hover:bg-indigo-700 transition text-[10px] uppercase tracking-[0.2em] disabled:opacity-30">
-                  {loadingPlan ? <i className="fas fa-spinner fa-spin mr-3"></i> : <i className="fas fa-magic mr-3"></i>} {loadingPlan ? 'ARCHITECTING...' : 'GENERATE CBE LESSON PLAN'}
+                  {loadingPlan ? <i className="fas fa-spinner fa-spin mr-3"></i> : <i className="fas fa-magic mr-3"></i>} {loadingPlan ? 'ARCHITECTING...' : 'CONSTRUCT CBE LESSON PLAN'}
                 </button>
                 <button onClick={() => handleGenerateNotes()} disabled={loadingNotes || !isFormValid} className="flex-1 bg-emerald-600 text-white font-black py-5 rounded-3xl shadow-2xl hover:bg-emerald-700 transition text-[10px] uppercase tracking-[0.2em] disabled:opacity-30">
                   {loadingNotes ? <i className="fas fa-spinner fa-spin mr-3"></i> : <i className="fas fa-file-alt mr-3"></i>} {loadingNotes ? 'COMPILING...' : 'GENERATE STUDY NOTES'}
@@ -164,9 +164,42 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                         </div>
 
                         <div className="space-y-8 text-[11px] leading-relaxed text-black">
-                           <div className="space-y-1">
-                              <p className="font-black">Strand: <span className="font-bold text-slate-700 print:text-black">{plan.strand || '-'}</span></p>
-                              <p className="font-black">Sub Strand: <span className="font-bold text-slate-700 print:text-black">{plan.subStrand || '-'}</span></p>
+                           <div className="grid grid-cols-2 gap-4 border-b pb-6">
+                              <div>
+                                <p className="font-black">Strand: <span className="font-bold text-slate-700 print:text-black">{plan.strand || '-'}</span></p>
+                                <p className="font-black">Sub Strand: <span className="font-bold text-slate-700 print:text-black">{plan.subStrand || '-'}</span></p>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-black">Date: <span className="font-bold">{plan.date || new Date().toLocaleDateString()}</span></p>
+                                <p className="font-black">Roll: <span className="font-bold">{plan.roll || '-'}</span></p>
+                              </div>
+                           </div>
+
+                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-6 rounded-[2rem] print:bg-transparent print:p-0">
+                              <div className="p-4 border border-indigo-100 rounded-2xl bg-white shadow-sm">
+                                <h4 className="font-black uppercase text-[9px] text-indigo-600 mb-2 flex items-center gap-2">
+                                  <i className="fas fa-brain"></i> Core Competencies
+                                </h4>
+                                <ul className="list-disc pl-4 space-y-0.5 text-[10px] font-medium leading-tight text-slate-700">
+                                  {(plan.coreCompetencies || []).map((c, i) => <li key={i}>{c}</li>)}
+                                </ul>
+                              </div>
+                              <div className="p-4 border border-emerald-100 rounded-2xl bg-white shadow-sm">
+                                <h4 className="font-black uppercase text-[9px] text-emerald-600 mb-2 flex items-center gap-2">
+                                  <i className="fas fa-heart text-red-400"></i> Values
+                                </h4>
+                                <ul className="list-disc pl-4 space-y-0.5 text-[10px] font-medium leading-tight text-slate-700">
+                                  {(plan.values || []).map((v, i) => <li key={i}>{v}</li>)}
+                                </ul>
+                              </div>
+                              <div className="p-4 border border-amber-100 rounded-2xl bg-white shadow-sm">
+                                <h4 className="font-black uppercase text-[9px] text-amber-600 mb-2 flex items-center gap-2">
+                                  <i className="fas fa-globe-africa text-emerald-500"></i> PCIs
+                                </h4>
+                                <ul className="list-disc pl-4 space-y-0.5 text-[10px] font-medium leading-tight text-slate-700">
+                                  {(plan.pcis || []).map((p, i) => <li key={i}>{p}</li>)}
+                                </ul>
+                              </div>
                            </div>
 
                            <div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { OnboardedTeacher, UserProfile } from '../types';
 
@@ -18,7 +19,6 @@ const StaffManagement: React.FC<StaffManagementProps> = ({
   lastSynced, 
   onForceSync 
 }) => {
-  const [hasApiKey, setHasApiKey] = useState(false);
   const [newStaff, setNewStaff] = useStateStaff({
     name: '',
     tscNumber: '',
@@ -27,28 +27,6 @@ const StaffManagement: React.FC<StaffManagementProps> = ({
 
   const [newSubject, setNewSubject] = React.useState('');
   const [newGrade, setNewGrade] = React.useState('');
-
-  useEffect(() => {
-    const checkApiKey = async () => {
-      // Use type assertion to avoid conflict with existing global AIStudio type
-      const aiStudio = (window as any).aistudio;
-      if (aiStudio?.hasSelectedApiKey) {
-        const selected = await aiStudio.hasSelectedApiKey();
-        setHasApiKey(selected);
-      }
-    };
-    checkApiKey();
-  }, []);
-
-  const handleSelectKey = async () => {
-    // Use type assertion to avoid conflict with existing global AIStudio type
-    const aiStudio = (window as any).aistudio;
-    if (aiStudio?.openSelectKey) {
-      await aiStudio.openSelectKey();
-      // Assume success as per race condition notes
-      setHasApiKey(true);
-    }
-  };
 
   // Helper to update specific fields in the teacher's own profile
   const updateMyProfile = (field: keyof UserProfile, value: any) => {
@@ -107,7 +85,7 @@ const StaffManagement: React.FC<StaffManagementProps> = ({
         </div>
         
         <div className="flex items-center gap-4">
-          <div className="bg-white border-2 border-slate-100 p-4 rounded-[1.5rem] shadow-sm flex items-center gap-4 animate-in slide-in-from-right duration-500">
+          <div className="bg-white border-2 border-slate-100 p-4 rounded-[1.5rem] shadow-sm flex items-center gap-4">
              <div className="text-right">
                 <p className={`text-[9px] font-black uppercase tracking-widest leading-none mb-1 ${
                   syncStatus === 'error' ? 'text-red-500' : syncStatus === 'syncing' ? 'text-amber-500' : 'text-emerald-500'
@@ -118,54 +96,13 @@ const StaffManagement: React.FC<StaffManagementProps> = ({
              </div>
              <button 
                onClick={onForceSync}
-               className="bg-indigo-600 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-indigo-700 transition active:scale-95 shadow-lg shadow-indigo-100"
+               className="bg-indigo-600 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-indigo-700 transition shadow-lg shadow-indigo-100"
                title="Manual Cloud Sync"
              >
                 <i className={`fas fa-sync-alt ${syncStatus === 'syncing' ? 'fa-spin' : ''}`}></i>
              </button>
           </div>
         </div>
-      </div>
-
-      {/* UPDATED: DEEPSEEK AI CONFIGURATION SECTION */}
-      <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl mb-12 relative overflow-hidden border border-white/10">
-        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-8">
-          <div className="w-20 h-20 bg-white/10 rounded-[2rem] flex items-center justify-center border border-white/20 backdrop-blur-md shrink-0">
-            <i className={`fas ${hasApiKey ? 'fa-bolt text-yellow-400' : 'fa-key text-white/50'} text-4xl`}></i>
-          </div>
-          <div className="flex-1 text-center lg:text-left">
-            <h3 className="text-2xl font-black uppercase tracking-tight mb-2">Deepseek AI Tier</h3>
-            <p className="text-indigo-100 text-[11px] leading-relaxed font-bold uppercase tracking-wide opacity-80 mb-4">
-              Unlock the full power of Deepseek-V3 for high-speed curriculum generation and structured planning.
-            </p>
-            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4">
-               <button 
-                 onClick={handleSelectKey}
-                 className="bg-white text-indigo-900 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-yellow-400 transition-colors shadow-xl"
-               >
-                 {hasApiKey ? "RE-CONFIGURE DEEPSEEK KEY" : "ACTIVATE DEEPSEEK TIER"}
-               </button>
-               <a 
-                 href="https://platform.deepseek.com" 
-                 target="_blank" 
-                 rel="noopener noreferrer"
-                 className="text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white underline"
-               >
-                 View Deepseek Platform
-               </a>
-            </div>
-          </div>
-          <div className="hidden xl:block px-8 py-6 bg-black/20 rounded-3xl border border-white/5 backdrop-blur-sm">
-             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-indigo-300 mb-1">Current Status</p>
-             <div className="flex items-center gap-3">
-               <div className={`w-2 h-2 rounded-full ${hasApiKey ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}></div>
-               <span className="text-[11px] font-black uppercase tracking-widest">
-                 {hasApiKey ? "Deepseek Enabled" : "System Offline"}
-               </span>
-             </div>
-          </div>
-        </div>
-        <i className="fas fa-microchip absolute right-[-40px] top-[-40px] text-white/5 text-[15rem] pointer-events-none -rotate-12"></i>
       </div>
 
       <div className="bg-indigo-900 rounded-[2.5rem] p-8 md:p-12 text-white shadow-2xl mb-12 relative overflow-hidden">
@@ -214,7 +151,7 @@ const StaffManagement: React.FC<StaffManagementProps> = ({
         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
           <h3 className="font-black text-slate-800 mb-6 uppercase text-[10px] tracking-widest flex items-center gap-3">
             <i className="fas fa-book text-indigo-500"></i>
-            Global Subjects Library
+            Learning Areas (Subjects)
           </h3>
           <div className="space-y-4">
             <div className="flex gap-2">
@@ -246,7 +183,7 @@ const StaffManagement: React.FC<StaffManagementProps> = ({
         <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
           <h3 className="font-black text-slate-800 mb-6 uppercase text-[10px] tracking-widest flex items-center gap-3">
             <i className="fas fa-school text-indigo-500"></i>
-            Global Grade Registry
+            Grades / Streams
           </h3>
           <div className="space-y-4">
             <div className="flex gap-2">
@@ -282,9 +219,6 @@ const StaffManagement: React.FC<StaffManagementProps> = ({
             <h3 className="font-black text-slate-800 uppercase tracking-widest text-xs">Staff Directory</h3>
             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-1">Authorized educators at {profile.school || 'Unset School'}</p>
           </div>
-          <button className="bg-slate-900 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-             <i className="fas fa-user-plus"></i> Add Staff
-          </button>
         </div>
         
         <div className="p-8 bg-slate-50/20 border-b">

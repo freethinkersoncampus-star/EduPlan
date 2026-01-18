@@ -9,7 +9,7 @@ export interface OnboardedTeacher {
   id: string;
   name: string;
   tscNumber: string;
-  role: 'Teacher' | 'HOD' | 'Deputy' | 'Principal';
+  role: 'Teacher' | 'HOD' | 'Deputy' | 'Principal' | 'Admin';
   onboardedDate: string;
 }
 
@@ -22,6 +22,7 @@ export interface UserProfile {
   onboardedStaff?: OnboardedTeacher[];
   availableSubjects?: string[];
   grades?: string[];
+  role?: string;
 }
 
 export interface LessonSlot {
@@ -98,7 +99,7 @@ export interface KnowledgeDocument {
 export interface LessonStep {
   title: string;
   duration: string;
-  content: string[]; // List of activities for that step
+  content: string[]; 
 }
 
 export interface LessonPlan {
@@ -115,6 +116,9 @@ export interface LessonPlan {
   roll: string;
   strand: string;
   subStrand: string;
+  coreCompetencies: string[];
+  values: string[];
+  pcis: string[];
   keyInquiryQuestions: string[];
   outcomes: string[];
   learningResources: string[];
