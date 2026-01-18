@@ -20,7 +20,8 @@ async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: bo
         { role: "user", content: userPrompt }
       ],
       response_format: isJson ? { type: "json_object" } : undefined,
-      temperature: 0.7
+      temperature: 0.6, // Lower temperature slightly for more stable JSON
+      max_tokens: 4096 // Increased to prevent truncation of long JSON responses
     })
   });
 
@@ -33,7 +34,14 @@ async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: bo
   }
 
   const data = await response.json();
-  return data.choices[0].message.content;
+  const content = data.choices[0].message.content;
+  
+  // If JSON mode is enabled, check if the response was finished properly
+  if (isJson && data.choices[0].finish_reason === 'length') {
+    throw new Error("RESPONSE_TOO_LONG: The curriculum chunk was too large for the AI to finish in one go. Try reducing the number of weeks per chunk or contact support.");
+  }
+
+  return content;
 }
 
 /**
@@ -47,6 +55,10 @@ function extractJSON(text: string) {
     return JSON.parse(jsonString);
   } catch (e) {
     console.error("JSON Parse failed", e);
+    // If it's a truncation error, provide a better message
+    if (e instanceof SyntaxError && e.message.includes('Unterminated string')) {
+        throw new Error("AI output was truncated. Please try generating a smaller range of weeks.");
+    }
     throw new Error("AI data integrity check failed. Please try again.");
   }
 }
@@ -65,19 +77,13 @@ export const generateSOWChunk = async (
 ): Promise<SOWRow[]> => {
   const systemInstruction = `You are a Senior KICD Curriculum Specialist. 
     TASK: Generate a high-fidelity, detailed CBE Rationalized Scheme of Work (SOW) in JSON format.
-    STRUCTURE: Return a JSON object with a "lessons" array. Each lesson must have:
-    "week" (int), "lesson" (int), "strand" (string), "subStrand" (string), "learningOutcomes" (string), 
-    "teachingExperiences" (string), "keyInquiryQuestions" (string), "learningResources" (string), 
-    "assessmentMethods" (string), "reflection" (string).
+    STRUCTURE: Return a JSON object with a "lessons" array. Each entry must be professional and pedagogical.
+    KEYS: "week" (int), "lesson" (int), "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection".
     RULES: 
-    1. DO NOT use placeholders like "-", "TBD", or empty strings. 
-    2. PROVIDE rich, pedagogical content for EVERY field.
-    Context: ${knowledgeContext || 'Standard CBE'}`;
+    1. Be substantive but concise to avoid cutting off mid-response.
+    2. Context: ${knowledgeContext || 'Standard CBE'}`;
 
-  const userPrompt = `SUBJECT: ${subject} | GRADE: ${grade} | TERM: ${term}. 
-    Weeks ${startWeek} through ${endWeek}. 
-    Lessons per week: ${lessonsPerWeek}. 
-    Populate the SOW with professional pedagogical entries.`;
+  const userPrompt = `Generate JSON SOW for ${subject} ${grade} Term ${term}, Weeks ${startWeek}-${endWeek}. ${lessonsPerWeek} lessons/week.`;
 
   try {
     const textResponse = await callDeepseek(systemInstruction, userPrompt, true);
@@ -102,21 +108,10 @@ export const generateLessonPlan = async (
 ): Promise<LessonPlan> => {
   const systemInstruction = `You are a Senior KICD CBE Pedagogy Expert. 
     TASK: Architect a COMPLETE, HIGH-CONTENT Lesson Plan in JSON format. 
-    STRUCTURE: Return a JSON object matching this schema:
-    {
-      "school": string, "year": number, "term": string, "textbook": string, "week": number, "lessonNumber": number,
-      "learningArea": string, "grade": string, "date": string, "time": string, "roll": string, "strand": string, "subStrand": string,
-      "keyInquiryQuestions": string[], "outcomes": string[], "learningResources": string[], "introduction": string[],
-      "lessonDevelopment": [{"title": string, "duration": string, "content": string[]}],
-      "conclusion": string[], "extendedActivities": string[], "teacherSelfEvaluation": string
-    }
-    RULES: 
-    1. No placeholders. Use specific activities and detailed steps.
+    STRUCTURE: Return a JSON object matching the required schema. No placeholders.
     Context: ${knowledgeContext || 'Standard CBE'}`;
 
-  const userPrompt = `Detailed Lesson Plan for ${subject} Grade ${grade}. 
-    Strand: ${strand} | Sub-Strand: ${subStrand}. 
-    School: ${schoolName}.`;
+  const userPrompt = `Detailed Lesson Plan JSON for ${subject} Grade ${grade}. Strand: ${strand}, Sub-Strand: ${subStrand}. School: ${schoolName}.`;
 
   try {
     const textResponse = await callDeepseek(systemInstruction, userPrompt, true);
