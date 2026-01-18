@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { OnboardedTeacher, UserProfile } from '../types';
 
@@ -128,31 +127,31 @@ const StaffManagement: React.FC<StaffManagementProps> = ({
         </div>
       </div>
 
-      {/* NEW: PROFESSIONAL AI CONFIGURATION SECTION */}
+      {/* UPDATED: DEEPSEEK AI CONFIGURATION SECTION */}
       <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl mb-12 relative overflow-hidden border border-white/10">
         <div className="relative z-10 flex flex-col lg:flex-row items-center gap-8">
           <div className="w-20 h-20 bg-white/10 rounded-[2rem] flex items-center justify-center border border-white/20 backdrop-blur-md shrink-0">
             <i className={`fas ${hasApiKey ? 'fa-bolt text-yellow-400' : 'fa-key text-white/50'} text-4xl`}></i>
           </div>
           <div className="flex-1 text-center lg:text-left">
-            <h3 className="text-2xl font-black uppercase tracking-tight mb-2">Professional AI Tier</h3>
+            <h3 className="text-2xl font-black uppercase tracking-tight mb-2">Deepseek AI Tier</h3>
             <p className="text-indigo-100 text-[11px] leading-relaxed font-bold uppercase tracking-wide opacity-80 mb-4">
-              Unlock the full power of Gemini 3.0 Pro for higher fidelity curriculum generation.
+              Unlock the full power of Deepseek-V3 for high-speed curriculum generation and structured planning.
             </p>
             <div className="flex flex-wrap items-center justify-center lg:justify-start gap-4">
                <button 
                  onClick={handleSelectKey}
                  className="bg-white text-indigo-900 px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-yellow-400 transition-colors shadow-xl"
                >
-                 {hasApiKey ? "RE-CONFIGURE PROFESSIONAL KEY" : "ACTIVATE PROFESSIONAL TIER"}
+                 {hasApiKey ? "RE-CONFIGURE DEEPSEEK KEY" : "ACTIVATE DEEPSEEK TIER"}
                </button>
                <a 
-                 href="https://ai.google.dev/gemini-api/docs/billing" 
+                 href="https://platform.deepseek.com" 
                  target="_blank" 
                  rel="noopener noreferrer"
                  className="text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white underline"
                >
-                 View Billing Setup
+                 View Deepseek Platform
                </a>
             </div>
           </div>
@@ -161,7 +160,7 @@ const StaffManagement: React.FC<StaffManagementProps> = ({
              <div className="flex items-center gap-3">
                <div className={`w-2 h-2 rounded-full ${hasApiKey ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}></div>
                <span className="text-[11px] font-black uppercase tracking-widest">
-                 {hasApiKey ? "System Optimized" : "Free Tier (Throttled)"}
+                 {hasApiKey ? "Deepseek Enabled" : "System Offline"}
                </span>
              </div>
           </div>

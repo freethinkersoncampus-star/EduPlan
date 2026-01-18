@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { LessonSlot, UserProfile } from '../types';
 
@@ -135,7 +134,7 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, slots, user, onNavigate })
               <i className="fas fa-robot text-3xl text-yellow-400"></i>
             </div>
             <h3 className="text-3xl font-black tracking-tighter uppercase mb-4 leading-none">Pedagogical<br/>Studio</h3>
-            <p className="text-indigo-100 text-[11px] mb-12 leading-relaxed font-medium opacity-80">Generate KICD-compliant Schemes of Work and Lesson Plans instantly using Gemini 3.0 Pro.</p>
+            <p className="text-indigo-100 text-[11px] mb-12 leading-relaxed font-medium opacity-80">Generate KICD-compliant Schemes of Work and Lesson Plans instantly using Deepseek-V3.</p>
             
             <div className="space-y-4">
               <button 
@@ -160,7 +159,7 @@ const Dashboard: React.FC<DashboardProps> = ({ stats, slots, user, onNavigate })
                  <span className="text-[9px] font-black uppercase tracking-widest text-white/60">Cloud Secured</span>
               </div>
               <p className="text-[10px] text-indigo-100 leading-relaxed font-bold uppercase tracking-wide">
-                Authorized for {user.school || 'Unset Institution'}.
+                Powered by Deepseek Intelligence.
               </p>
             </div>
           </div>
