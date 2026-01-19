@@ -1,4 +1,3 @@
-
 // Add React import for React.FC and React.MouseEvent types
 import React, { useState, useEffect, useMemo } from 'react';
 import { generateSOWChunk } from '../services/geminiService';
@@ -42,8 +41,8 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     subject: persistedMeta?.subject || '',
     grade: persistedMeta?.grade || '',
     term: persistedMeta?.term || 1,
-    year: persistedMeta?.year || 2025,
-    termStart: persistedMeta?.termStart || new Date().toISOString().split('T')[0],
+    year: persistedMeta?.year || 2026,
+    termStart: persistedMeta?.termStart || '2026-01-05',
     termEnd: persistedMeta?.termEnd || '',
     halfTermStart: persistedMeta?.halfTermStart || '',
     halfTermEnd: persistedMeta?.halfTermEnd || ''
@@ -83,9 +82,17 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     }
   };
 
+  /**
+   * ANTI-HALLUCINATION DATE LOGIC
+   * Forces dates to remain within the 2026 Academic Year.
+   */
   const calculateDatesFromTimetable = (enrichedSow: SOWRow[]) => {
     if (!formData.termStart) return enrichedSow;
     const startDate = new Date(formData.termStart);
+    
+    // Ensure we don't drift past 2026 if requested for 2026
+    const baseYear = startDate.getFullYear();
+
     const myLessons = timetableSlots
       .filter(s => s.subject === formData.subject && s.grade === formData.grade && s.type === 'lesson')
       .sort((a, b) => DAYS_OF_WEEK.indexOf(a.day) - DAYS_OF_WEEK.indexOf(b.day));
@@ -95,19 +102,28 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     return enrichedSow.map(row => {
       if (row.isBreak) return row;
       
+      // Clean up week drift (if AI returned 100, we map it relative to term start)
+      const sanitizedWeek = row.week > 15 ? (row.week % 15) || 1 : row.week;
+      
       const rawIdx = (row.lesson - 1) % myLessons.length;
       const lessonInWeekIndex = rawIdx < 0 ? rawIdx + myLessons.length : rawIdx;
       
       const lessonDay = myLessons[lessonInWeekIndex];
-      
       if (!lessonDay || !lessonDay.day) return row;
 
       const date = new Date(startDate);
-      const daysToAdd = (row.week - 1) * 7 + DAYS_OF_WEEK.indexOf(lessonDay.day);
+      // Logic: StartDate + ((Week-1) * 7 days) + DayOffset
+      const daysToAdd = (sanitizedWeek - 1) * 7 + DAYS_OF_WEEK.indexOf(lessonDay.day);
       date.setDate(startDate.getDate() + daysToAdd);
       
+      // Hard check: If the year drifted due to high week number, force it back
+      if (date.getFullYear() > baseYear) {
+         date.setFullYear(baseYear);
+      }
+
       return {
         ...row,
+        week: sanitizedWeek,
         selectedDay: lessonDay.day,
         date: date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
       };
@@ -121,14 +137,12 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     setPersistedSow([]); 
     
     try {
-      // Small chunks to avoid RESPONSE_TOO_LONG
+      // 40/40/20 Term Chunks
       const chunks = [
-        { start: 1, end: 2 },
-        { start: 3, end: 4 },
-        { start: 5, end: 6 },
-        { start: 7, end: 8 },
-        { start: 9, end: 10 },
-        { start: 11, end: 12 }
+        { start: 1, end: 3 },
+        { start: 4, end: 6 },
+        { start: 7, end: 9 },
+        { start: 10, end: 13 }
       ];
 
       let allLessons: SOWRow[] = [];
@@ -136,47 +150,29 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       for (const chunk of chunks) {
         setLoadingStatus(`Architecting Term ${formData.term}, Weeks ${chunk.start}-${chunk.end}...`);
         
-        let retries = 0;
-        let chunkResult: SOWRow[] = [];
-        
-        while (retries < 2) {
-          try {
-            chunkResult = await generateSOWChunk(
-              formData.subject,
-              formData.grade,
-              formData.term,
-              chunk.start,
-              chunk.end,
-              effectiveLessonsPerWeek,
-              knowledgeContext
-            );
-            break; 
-          } catch (e: any) {
-            if (e.message === "API_KEY_RESET_REQUIRED") {
-               const aiStudio = (window as any).aistudio;
-               if (aiStudio?.openSelectKey) {
-                 alert("Your Professional AI Key needs re-authentication.");
-                 await aiStudio.openSelectKey();
-                 continue; 
-               }
-            }
-            retries++;
-            if (retries === 2) throw e;
-            setLoadingStatus(`Retrying Weeks ${chunk.start}-${chunk.end}...`);
-            await new Promise(r => setTimeout(r, 2000));
-          }
-        }
+        const chunkResult = await generateSOWChunk(
+          formData.subject,
+          formData.grade,
+          formData.term,
+          chunk.start,
+          chunk.end,
+          effectiveLessonsPerWeek,
+          knowledgeContext
+        );
 
         allLessons = [...allLessons, ...chunkResult];
         
+        // Intermediary date calculation to show progress
         const intermediaryEnriched: SOWRow[] = allLessons.map(row => ({
           ...row,
           isCompleted: false,
+          // Half-term break occurs at Week 7
           week: row.week >= 7 ? row.week + 1 : row.week 
         }));
         setPersistedSow(calculateDatesFromTimetable(intermediaryEnriched));
       }
 
+      // Final processing to insert the Half-Term break row formally
       const finalSow: SOWRow[] = [];
       let breakInserted = false;
       
@@ -189,8 +185,8 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
             lesson: 0, 
             strand: 'HALF TERM BREAK', 
             subStrand: '-', 
-            learningOutcomes: 'Academic Review', 
-            teachingExperiences: 'Reflection', 
+            learningOutcomes: 'Academic Review & Catch-up', 
+            teachingExperiences: 'Teacher-Learner consultative reflection on Term goals.', 
             keyInquiryQuestions: '-', 
             learningResources: '-', 
             assessmentMethods: '-', 
@@ -210,7 +206,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       setPersistedMeta(newMeta);
       
     } catch (err: any) {
-      alert("Vault Sync Interrupted: " + (err.message || "Please check your internet."));
+      alert("Error: " + (err.message || "Please check your internet."));
     } finally {
       setLoading(false);
       setLoadingStatus('');
@@ -270,7 +266,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-10 gap-4">
           <div>
             <h2 className="text-2xl md:text-3xl font-black text-slate-800 uppercase tracking-tighter leading-none text-black">SOW Architect</h2>
-            <p className="text-[9px] text-slate-400 font-bold tracking-[0.2em] mt-1.5 uppercase">40/40/20 Syllabus Engine</p>
+            <p className="text-[9px] text-slate-400 font-bold tracking-[0.2em] mt-1.5 uppercase">2026 Academic Engine</p>
           </div>
           <button onClick={() => setShowLibrary(!showLibrary)} className="w-full sm:w-auto text-[10px] font-black text-indigo-600 bg-indigo-50 px-6 py-3 rounded-xl uppercase tracking-widest hover:bg-indigo-100 transition">
             {showLibrary ? "← CONFIG" : `SOW ARCHIVE (${history.length})`}
@@ -296,11 +292,11 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Year</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Academic Year</label>
                 <input type="number" className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 font-black text-[11px] outline-none" value={formData.year} onChange={e => setFormData({...formData, year: parseInt(e.target.value)})} />
               </div>
               <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Term Selection</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Current Term</label>
                 <select className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 font-black text-[11px] outline-none" value={formData.term} onChange={e => setFormData({...formData, term: parseInt(e.target.value)})}>
                   <option value={1}>Term 1 (First 40%)</option>
                   <option value={2}>Term 2 (Next 40%)</option>
@@ -311,20 +307,8 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-slate-50/50 p-6 rounded-[2rem] border border-slate-100">
               <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Term Start</label>
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Term Opening Date</label>
                 <input type="date" className="w-full border-2 border-white p-3.5 rounded-xl bg-white font-black text-[10px]" value={formData.termStart} onChange={e => setFormData({...formData, termStart: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Half Term Start</label>
-                <input type="date" className="w-full border-2 border-white p-3.5 rounded-xl bg-white font-black text-[10px]" value={formData.halfTermStart} onChange={e => setFormData({...formData, halfTermStart: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Half Term End</label>
-                <input type="date" className="w-full border-2 border-white p-3.5 rounded-xl bg-white font-black text-[10px]" value={formData.halfTermEnd} onChange={e => setFormData({...formData, halfTermEnd: e.target.value})} />
-              </div>
-              <div>
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Term End</label>
-                <input type="date" className="w-full border-2 border-white p-3.5 rounded-xl bg-white font-black text-[10px]" value={formData.termEnd} onChange={e => setFormData({...formData, termEnd: e.target.value})} />
               </div>
             </div>
 
@@ -345,15 +329,11 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                 <h4 className="font-black text-slate-800 uppercase text-xs tracking-tight">{item.subject} ({item.grade})</h4>
                 <div className="mt-4 flex items-center gap-2">
                    <div className="h-1 flex-1 bg-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-indigo-400" style={{ width: `${Math.round((item.data.filter(r => r.isCompleted).length / item.data.filter(r => !r.isBreak).length) * 100)}%` }}></div>
+                      <div className="h-full bg-indigo-400" style={{ width: `${Math.round((item.data.filter(r => r.isCompleted).length / (item.data.filter(r => !r.isBreak).length || 1)) * 100)}%` }}></div>
                    </div>
-                   <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">
-                      {Math.round((item.data.filter(r => r.isCompleted).length / item.data.filter(r => !r.isBreak).length) * 100)}%
-                   </span>
                 </div>
               </div>
             ))}
-            {history.length === 0 && <div className="col-span-full py-20 text-center text-slate-300 font-black uppercase tracking-widest text-[10px]">No archived schemes.</div>}
           </div>
         )}
       </div>
@@ -365,16 +345,12 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">
                  {loading 
                    ? `Architecting Pipeline: ${persistedSow.length} Lessons Generated` 
-                   : `Curriculum Coverage: ${coverageStats.percentage}% (${coverageStats.completed}/${coverageStats.total} Lessons Covered)`}
+                   : `Academic Year: 2026 &bull; Progress: ${coverageStats.percentage}%`}
                </span>
                <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
                   <div 
                     className={`h-full ${loading ? 'bg-indigo-400 animate-pulse' : 'bg-indigo-500'} transition-all duration-700`} 
-                    style={{ 
-                      width: `${loading 
-                        ? Math.min(100, (persistedSow.length / (13 * effectiveLessonsPerWeek)) * 100) 
-                        : coverageStats.percentage}%` 
-                    }}
+                    style={{ width: `${loading ? Math.min(100, (persistedSow.length / 40) * 100) : coverageStats.percentage}%` }}
                   ></div>
                </div>
             </div>
@@ -422,7 +398,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                           </div>
                         )}
                       </td>
-                      <td className="border border-black p-3 text-center font-black">{r.isBreak ? '-' : r.week}</td>
+                      <td className="border border-black p-3 text-center font-black">{r.week}</td>
                       <td className="border border-black p-3 text-center font-bold">{r.isBreak ? '-' : r.lesson}</td>
                       <td className="border border-black p-3 text-center font-black text-indigo-800">{r.date || '-'}</td>
                       <td className="border border-black p-3 font-medium">{editingIndex === i ? <textarea className="w-full text-[9px]" value={r.strand} onChange={e => handleEditRow(i, 'strand', e.target.value)} /> : (r.strand || '—')}</td>

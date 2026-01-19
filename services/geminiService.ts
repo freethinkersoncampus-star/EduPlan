@@ -2,6 +2,7 @@ import { SOWRow, LessonPlan } from "../types";
 
 /**
  * DEEPSEEK-V3 CORE ENGINE
+ * Specialized for high-fidelity KICD CBE Lesson Planning
  */
 async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: boolean = false) {
   const apiKey = process.env.API_KEY;
@@ -20,14 +21,14 @@ async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: bo
         { role: "user", content: userPrompt }
       ],
       response_format: isJson ? { type: "json_object" } : undefined,
-      temperature: 0.2, // Higher precision for curriculum data
+      temperature: 0.15, // High precision for educational content
       max_tokens: 4096
     })
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Service Interruption: ${response.status}`);
+    throw new Error(errorData.error?.message || `API Error: ${response.status}`);
   }
 
   const data = await response.json();
@@ -41,9 +42,6 @@ function extractJSON(text: string) {
   try { return JSON.parse(jsonString); } catch (e) { throw new Error("Pedagogical data integrity check failed."); }
 }
 
-/**
- * Generates Term-Specific SOW (40/40/20 partitioning).
- */
 export const generateSOWChunk = async (
   subject: string, 
   grade: string, 
@@ -54,31 +52,35 @@ export const generateSOWChunk = async (
   knowledgeContext?: string
 ): Promise<SOWRow[]> => {
   const partitionRange = term === 1 
-    ? "SYLLABUS SEGMENT: Strictly use ONLY the first 40% of the annual topics provided in the curriculum documents."
+    ? "SYLLABUS BOUNDARY: Strictly the FIRST 40% of the syllabus. Start from the VERY FIRST topic in the document."
     : term === 2
-    ? "SYLLABUS SEGMENT: Strictly use ONLY the middle 40% (segment from 40% to 80%) of the annual topics."
-    : "SYLLABUS SEGMENT: Strictly use ONLY the final 20% (segment from 80% to 100%) of the annual topics.";
+    ? "SYLLABUS BOUNDARY: Strictly the MIDDLE 40% (40% to 80%). Start exactly where Term 1 ended."
+    : "SYLLABUS BOUNDARY: Strictly the FINAL 20% (80% to 100%).";
 
-  const systemInstruction = `You are a Senior KICD Curriculum Specialist for CBE.
-    MANDATE:
-    1. ${partitionRange} DO NOT generate topics from the whole year.
-    2. ZERO PLACEHOLDERS: Every outcome and experience must be SUBSTANTIVE and specific. No generic text.
-    3. WEEKLY FLOW: Respect the ${lessonsPerWeek} lessons per week requirement.
-    Return JSON: { "lessons": [{ "week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection" }] }
-    
-    CURRICULUM CONTEXT: ${knowledgeContext || 'Standard KICD CBE Guidelines'}`;
+  const systemInstruction = `You are a Senior KICD Curriculum Specialist. 
+    YEAR: 2026.
+    RULES:
+    1. ${partitionRange}
+    2. LINEAR FLOW: Topics must follow the textbook order. DO NOT mix strands.
+    3. WEEK FENCING: Weeks ${startWeek} to ${endWeek}.
+    Return JSON: { "lessons": [{ "week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection" }] }`;
 
-  const userPrompt = `Architect SOW for ${subject} Grade ${grade}, Term ${term}, Weeks ${startWeek} to ${endWeek}.`;
+  const userPrompt = `Architect SOW for Weeks ${startWeek}-${endWeek}. Current Term: ${term}. Subject: ${subject} Grade: ${grade}.`;
 
   try {
     const result = await callDeepseek(systemInstruction, userPrompt, true);
     const parsed = JSON.parse(result || '{}');
-    return (parsed.lessons || []) as SOWRow[];
+    const normalized = (parsed.lessons || []).map((lsn: any, idx: number) => {
+      const weekCount = Math.floor(idx / lessonsPerWeek) + startWeek;
+      return { ...lsn, week: weekCount > endWeek ? endWeek : weekCount };
+    });
+    return normalized as SOWRow[];
   } catch (error: any) { throw error; }
 };
 
 /**
- * Generates high-fidelity CBE Lesson Plans.
+ * HIGH-FIDELITY LESSON PLAN GENERATION
+ * Mandates the 5-30-5 structure and specific content.
  */
 export const generateLessonPlan = async (
   subject: string,
@@ -89,16 +91,20 @@ export const generateLessonPlan = async (
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
   const systemInstruction = `You are a Senior KICD CBE Pedagogy Expert.
-    MANDATE:
-    - NO SHELLS. NO PLACEHOLDERS like 'Teacher explains'. Provide EXACT content.
-    - CORE COMPETENCIES: Provide at least 3 specific CCs relevant to ${subStrand}.
-    - VALUES: Provide at least 3 specific Values.
-    - PCIs: Provide 2 relevant Pertinent Contemporary Issues.
-    - LESSON DEVELOPMENT: Describe specific step-by-step teacher actions and learner actions.
-    Return JSON matching the LessonPlan type.
-    Context: ${knowledgeContext || ''}`;
+    TASK: Architect a SUBSTANTIVE Lesson Plan for 2026.
+    STRICT FORMATTING RULES:
+    1. ORGANIZATION OF LEARNING: Must include:
+       - Introduction (5 mins): Specific hook and review of previous lesson.
+       - Lesson Development (30 mins): Divided into 4 distinct steps with specific timings (e.g., Step 1: 10m, Step 2: 10m, Step 3: 5m, Step 4: 5m).
+       - Conclusion (5 mins): Summary and prep for next lesson.
+    2. NO PLACEHOLDERS: DO NOT say "Teacher explains". Instead, say "Teacher demonstrates the concept of [X] by doing [Y] and asking learners to [Z]".
+    3. TEXTBOOK REFERENCES: Reference specific page numbers from KICD approved texts (e.g., 'Spark Integrated Science pg 77').
+    4. EXTENDED ACTIVITIES: Provide 3 concrete activities (Research, Creative, Debate/Community).
+    5. CORE ELEMENTS: Substantive descriptions for CCs, Values, and PCIs.
+    
+    Return JSON matching the LessonPlan type.`;
 
-  const userPrompt = `Architect a complete CBE Lesson Plan for ${subject} Grade ${grade} - ${subStrand} at ${schoolName}.`;
+  const userPrompt = `Subject: ${subject}, Grade: ${grade}, Strand: ${strand}, Sub-Strand: ${subStrand}, School: ${schoolName}. Context: ${knowledgeContext || ''}`;
 
   try {
     const result = await callDeepseek(systemInstruction, userPrompt, true);
@@ -107,7 +113,7 @@ export const generateLessonPlan = async (
 };
 
 export const generateLessonNotes = async (subj: string, grd: string, topic: string, context?: string, docs?: string): Promise<string> => {
-  const sys = `Expert Pedagogue. Provide clear, comprehensive Markdown study notes for Grade ${grd}.`;
-  const usr = `Generate study notes for ${subj} - ${topic}. Docs: ${docs || ''}`;
+  const sys = `Expert Subject Pedagogue. Provide clear Markdown study notes for Grade ${grd} students.`;
+  const usr = `Generate study notes for ${subj} - ${topic}.`;
   return await callDeepseek(sys, usr, false);
 };

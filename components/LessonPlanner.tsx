@@ -98,11 +98,11 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                 </div>
                 <div>
                     <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1">Learning Strand</label>
-                    <input className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-[10px] font-black uppercase" value={input.strand} onChange={e => setInput({...input, strand: e.target.value})} placeholder="e.g. Geometry" />
+                    <input className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-[10px] font-black uppercase" value={input.strand} onChange={e => setInput({...input, strand: e.target.value})} placeholder="e.g. Scientific Investigation" />
                 </div>
                 <div className="md:col-span-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1">Sub-Strand / Topic</label>
-                    <input className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-[10px] font-black uppercase" value={input.subStrand} onChange={e => setInput({...input, subStrand: e.target.value})} placeholder="e.g. Area of Circles" />
+                    <input className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-[10px] font-black uppercase" value={input.subStrand} onChange={e => setInput({...input, subStrand: e.target.value})} placeholder="e.g. Laboratory Safety" />
                 </div>
              </div>
              <div className="flex gap-4">
@@ -119,99 +119,124 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
 
            {(plan || notes || loadingPlan || loadingNotes) && (
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Formal CBE Lesson Plan Document */}
-                <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-2xl relative min-h-[700px] print:border-black print:p-0 lesson-plan-card">
+                {/* HIGH-FIDELITY CBE LESSON PLAN DOCUMENT */}
+                <div className="bg-white p-10 md:p-14 rounded-[3.5rem] border border-slate-100 shadow-2xl relative min-h-[900px] print:border-black print:p-8 lesson-plan-card">
                    {loadingPlan ? (
-                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 z-20 rounded-[3rem]">
-                        <i className="fas fa-brain text-4xl text-indigo-600 animate-pulse mb-4"></i>
-                        <p className="text-[10px] font-black uppercase text-indigo-900 tracking-widest">Constructing Pedagogical Content...</p>
+                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 z-20 rounded-[3.5rem]">
+                        <div className="w-16 h-16 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-6"></div>
+                        <p className="text-[11px] font-black uppercase text-indigo-900 tracking-[0.3em]">Constructing Professional Plan...</p>
                      </div>
                    ) : plan ? (
-                     <div className="animate-in fade-in duration-700">
-                        <div className="flex justify-between border-b pb-4 mb-10 print:hidden">
+                     <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                        <div className="flex justify-between border-b pb-6 mb-10 print:hidden">
                            <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Rationalized CBE Plan</span>
                            <div className="flex gap-3">
-                              <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest"><i className="fas fa-print"></i></button>
-                              <button onClick={saveCurrentPlan} className="bg-indigo-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100">SAVE ARCHIVE</button>
+                              <button onClick={() => window.print()} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition hover:bg-black"><i className="fas fa-print mr-2"></i>PRINT</button>
+                              <button onClick={saveCurrentPlan} className="bg-indigo-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition">SAVE VAULT</button>
                            </div>
                         </div>
 
-                        <div className="text-center border-b-2 border-black pb-4 mb-8">
-                           <h1 className="text-xl font-black uppercase underline decoration-1 underline-offset-4 text-black">{plan.year || 2025} RATIONALIZED {(plan.learningArea || '').toUpperCase()} LESSON PLAN</h1>
-                           <h2 className="text-sm font-black uppercase mt-2 text-black">TERM {plan.term || 'TWO'} — {plan.textbook || 'KICD APPROVED TEXT'}</h2>
+                        {/* Formal Document Header */}
+                        <div className="text-center border-b-2 border-black pb-6 mb-10">
+                           <h1 className="text-2xl font-black uppercase underline underline-offset-8 text-black tracking-tight">{plan.year || 2026} RATIONALIZED {(plan.learningArea || '').toUpperCase()} LESSON PLAN</h1>
+                           <h2 className="text-sm font-black uppercase mt-3 text-black">TERM {plan.term || 'ONE'} — {plan.textbook || 'KICD APPROVED TEXT'}</h2>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-x-12 gap-y-3 text-[11px] font-bold border-b border-slate-100 pb-6 mb-8 text-black">
-                           <p>STRAND: <span className="font-black uppercase">{plan.strand || '-'}</span></p>
-                           <p>DATE: <span className="font-black uppercase">{plan.date || new Date().toLocaleDateString()}</span></p>
-                           <p>SUB-STRAND: <span className="font-black uppercase">{plan.subStrand || '-'}</span></p>
-                           <p>ROLL: <span className="font-black uppercase">{plan.roll || '-'}</span></p>
+                        {/* Formal Metadata Table */}
+                        <div className="grid grid-cols-2 gap-x-16 gap-y-4 text-[12px] font-bold border-b-2 border-black pb-8 mb-10 text-black">
+                           <p className="flex justify-between"><span>STRAND:</span> <span className="font-black uppercase">{plan.strand || '-'}</span></p>
+                           <p className="flex justify-between"><span>DATE:</span> <span className="font-black uppercase">{plan.date || new Date().toLocaleDateString()}</span></p>
+                           <p className="flex justify-between"><span>SUB-STRAND:</span> <span className="font-black uppercase">{plan.subStrand || '-'}</span></p>
+                           <p className="flex justify-between"><span>ROLL:</span> <span className="font-black uppercase">{plan.roll || '-'}</span></p>
                         </div>
 
-                        <div className="space-y-8 text-[12px] leading-relaxed text-black">
-                           {/* CBE CORE ELEMENTS - INTEGRATED FORMALLY */}
-                           <div className="border border-black p-6 space-y-4 rounded-xl bg-slate-50/30">
-                              <div><span className="font-black underline uppercase text-[10px]">CORE COMPETENCIES:</span> {(plan.coreCompetencies || []).join(', ')}</div>
-                              <div><span className="font-black underline uppercase text-[10px]">VALUES:</span> {(plan.values || []).join(', ')}</div>
-                              <div><span className="font-black underline uppercase text-[10px]">PCIs:</span> {(plan.pcis || []).join(', ')}</div>
-                              <div><span className="font-black underline uppercase text-[10px]">KIQs:</span> {(plan.keyInquiryQuestions || []).join(' ')}</div>
+                        {/* CBE Pillars Section */}
+                        <div className="border-2 border-black p-8 space-y-5 rounded-2xl bg-slate-50/20 mb-10 text-black">
+                           <p className="text-[13px] leading-relaxed"><span className="font-black underline uppercase text-[11px] mr-2">CORE COMPETENCIES:</span> {(plan.coreCompetencies || []).join(', ')}</p>
+                           <p className="text-[13px] leading-relaxed"><span className="font-black underline uppercase text-[11px] mr-2">VALUES:</span> {(plan.values || []).join(', ')}</p>
+                           <p className="text-[13px] leading-relaxed"><span className="font-black underline uppercase text-[11px] mr-2">PCIs:</span> {(plan.pcis || []).join(', ')}</p>
+                           <p className="text-[13px] leading-relaxed"><span className="font-black underline uppercase text-[11px] mr-2">KIQs:</span> <span className="italic">{(plan.keyInquiryQuestions || []).join(' ')}</span></p>
+                        </div>
+
+                        <div className="space-y-10 text-black">
+                           {/* Learning Outcomes & Resources */}
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                              <div>
+                                 <h4 className="font-black underline uppercase mb-4 text-[12px]">Learning Outcomes:</h4>
+                                 <ul className="list-disc pl-8 space-y-2 font-medium text-[13px]">{(plan.outcomes || []).map((o,i)=><li key={i}>{o}</li>)}</ul>
+                              </div>
+                              <div>
+                                 <h4 className="font-black underline uppercase mb-4 text-[12px]">Learning Resources:</h4>
+                                 <ul className="list-disc pl-8 space-y-2 font-medium text-[13px]">{(plan.learningResources || []).map((r,i)=><li key={i}>{r}</li>)}</ul>
+                              </div>
                            </div>
 
-                           <div>
-                              <h4 className="font-black underline uppercase mb-3 text-[11px]">Learning Outcomes:</h4>
-                              <ul className="list-disc pl-6 space-y-1.5 font-medium">{(plan.outcomes || []).map((o,i)=><li key={i}>{o}</li>)}</ul>
-                           </div>
-
-                           <div className="space-y-6">
-                              <h4 className="font-black underline uppercase border-b-2 border-black pb-2 text-[11px]">Organization of Learning:</h4>
-                              <div className="space-y-6">
-                                 <div className="p-4 border-l-4 border-slate-200">
-                                    <span className="font-black uppercase block mb-1 text-[10px]">Introduction (5 mins)</span>
-                                    <p>{(plan.introduction || []).join(' ')}</p>
+                           {/* Formal Organization of Learning Section */}
+                           <div className="space-y-10">
+                              <h4 className="font-black underline uppercase border-b-2 border-black pb-2 text-[14px] tracking-tight">Organization of Learning:</h4>
+                              
+                              <div className="space-y-10">
+                                 {/* Introduction Section */}
+                                 <div className="pl-6 border-l-4 border-slate-300">
+                                    <h5 className="font-black uppercase mb-3 text-[12px]">Introduction (5 minutes)</h5>
+                                    <p className="text-[13px] leading-relaxed">{(plan.introduction || []).join(' ')}</p>
                                  </div>
-                                 <div className="space-y-6">
-                                    <span className="font-black uppercase block border-l-4 border-indigo-600 pl-4 text-[10px]">Lesson Development (30 mins)</span>
+
+                                 {/* Lesson Development Section */}
+                                 <div className="space-y-10">
+                                    <h5 className="font-black uppercase border-l-4 border-indigo-600 pl-6 text-[12px]">Lesson Development (30 minutes)</h5>
                                     {(plan.lessonDevelopment || []).map((step, idx) => (
-                                       <div key={idx} className="ml-4 p-5 bg-slate-50/50 rounded-2xl border border-slate-100">
-                                          <p className="font-black italic mb-2 text-indigo-900">Step {idx+1}: {step.title} ({step.duration})</p>
-                                          <ul className="list-disc pl-6 space-y-1">{(step.content || []).map((c,si)=><li key={si}>{c}</li>)}</ul>
+                                       <div key={idx} className="ml-6 p-8 bg-slate-50/50 rounded-3xl border border-slate-100 shadow-sm">
+                                          <p className="font-black italic mb-4 text-indigo-950 text-[13px]">Step {idx+1}: {step.title} ({step.duration})</p>
+                                          <ul className="list-disc pl-8 space-y-3 text-[13px] leading-relaxed">{(step.content || []).map((c,si)=><li key={si}>{c}</li>)}</ul>
                                        </div>
                                     ))}
                                  </div>
-                                 <div className="p-4 border-l-4 border-slate-200">
-                                    <span className="font-black uppercase block mb-1 text-[10px]">Conclusion (5 mins)</span>
-                                    <p>{(plan.conclusion || []).join(' ')}</p>
+
+                                 {/* Conclusion Section */}
+                                 <div className="pl-6 border-l-4 border-slate-300">
+                                    <h5 className="font-black uppercase mb-3 text-[12px]">Conclusion (5 minutes)</h5>
+                                    <p className="text-[13px] leading-relaxed">{(plan.conclusion || []).join(' ')}</p>
                                  </div>
-                                 <div className="pt-8 border-t border-slate-100">
-                                    <span className="font-black uppercase italic underline text-[10px]">Teacher Self-Evaluation:</span>
-                                    <p className="italic text-slate-500 mt-2">{plan.teacherSelfEvaluation || '________________________________________________________________________________________________________________________'}</p>
+
+                                 {/* Extended Activities */}
+                                 <div>
+                                    <h4 className="font-black underline uppercase mb-4 text-[12px]">Extended Activities:</h4>
+                                    <ul className="list-disc pl-8 space-y-3 text-[13px] leading-relaxed">{(plan.extendedActivities || []).map((ea,i)=><li key={i}>{ea}</li>)}</ul>
+                                 </div>
+
+                                 {/* Self-Evaluation Section */}
+                                 <div className="pt-10 border-t-2 border-black mt-16">
+                                    <h5 className="font-black uppercase italic underline text-[11px] mb-4">Teacher Self-Evaluation:</h5>
+                                    <div className="w-full h-12 border-b border-black border-dashed opacity-30 mb-4"></div>
+                                    <div className="w-full h-12 border-b border-black border-dashed opacity-30"></div>
                                  </div>
                               </div>
                            </div>
                         </div>
                      </div>
-                   ) : <div className="h-full flex flex-col items-center justify-center text-slate-200 uppercase font-black text-[10px] py-40"><i className="fas fa-file-signature text-6xl mb-4 opacity-5"></i><span>Plan Canvas</span></div>}
+                   ) : <div className="h-full flex flex-col items-center justify-center text-slate-200 uppercase font-black text-[10px] py-60"><i className="fas fa-file-signature text-7xl mb-6 opacity-10"></i><span>Plan Preview Canvas</span></div>}
                 </div>
 
                 {/* Subject Study Notes */}
-                <div className="bg-white p-10 rounded-[3rem] border border-slate-100 shadow-2xl relative min-h-[700px] print:border-black print:p-0 notes-card">
+                <div className="bg-white p-10 md:p-14 rounded-[3.5rem] border border-slate-100 shadow-2xl relative min-h-[900px] print:border-black print:p-8 notes-card">
                    {loadingNotes ? (
-                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 z-20 rounded-[3rem]">
-                        <i className="fas fa-feather text-4xl text-emerald-600 animate-pulse mb-4"></i>
-                        <p className="text-[10px] font-black uppercase text-emerald-900 tracking-widest">Compiling Educational Resources...</p>
+                     <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 z-20 rounded-[3.5rem]">
+                        <div className="w-16 h-16 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mb-6"></div>
+                        <p className="text-[11px] font-black uppercase text-emerald-900 tracking-[0.3em]">Generating Educational Content...</p>
                      </div>
                    ) : notes ? (
                      <div className="animate-in fade-in duration-700">
-                        <div className="flex justify-between border-b pb-4 mb-10 print:hidden">
-                           <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Comprehensive Notes</span>
+                        <div className="flex justify-between border-b pb-6 mb-10 print:hidden">
+                           <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Comprehensive Study Notes</span>
                            <div className="flex gap-3">
-                              <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest"><i className="fas fa-print"></i></button>
-                              <button onClick={saveCurrentNotes} className="bg-emerald-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100">SAVE NOTES</button>
+                              <button onClick={() => window.print()} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition hover:bg-black"><i className="fas fa-print mr-2"></i>PRINT</button>
+                              <button onClick={saveCurrentNotes} className="bg-emerald-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition">SAVE VAULT</button>
                            </div>
                         </div>
-                        <div className="prose prose-sm max-w-none text-black prose-headings:font-black prose-headings:uppercase prose-headings:tracking-tighter"><ReactMarkdown remarkPlugins={[remarkGfm]}>{notes}</ReactMarkdown></div>
+                        <div className="prose prose-sm md:prose-base max-w-none text-black prose-headings:font-black prose-headings:uppercase prose-headings:tracking-tight prose-li:font-medium"><ReactMarkdown remarkPlugins={[remarkGfm]}>{notes}</ReactMarkdown></div>
                      </div>
-                   ) : <div className="h-full flex flex-col items-center justify-center text-slate-200 uppercase font-black text-[10px] py-40"><i className="fas fa-feather-alt text-6xl mb-4 opacity-5"></i><span>Notes Canvas</span></div>}
+                   ) : <div className="h-full flex flex-col items-center justify-center text-slate-200 uppercase font-black text-[10px] py-60"><i className="fas fa-feather-alt text-7xl mb-6 opacity-10"></i><span>Notes Preview Canvas</span></div>}
                 </div>
              </div>
            )}
@@ -223,27 +248,29 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
            <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                  <div>
-                    <h3 className="text-xs font-black uppercase text-indigo-900 mb-6 tracking-widest flex items-center gap-3">
-                      <i className="fas fa-book-open"></i> Saved Lesson Plans ({(savedPlans || []).length})
+                    <h3 className="text-xs font-black uppercase text-indigo-900 mb-8 tracking-widest flex items-center gap-4">
+                      <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center"><i className="fas fa-book-open"></i></div>
+                      Saved Lesson Plans ({(savedPlans || []).length})
                     </h3>
-                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+                    <div className="space-y-4 max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
                        {(savedPlans || []).map(p => (
-                         <div key={p.id} className="p-6 bg-slate-50 border border-slate-100 rounded-[2rem] hover:border-indigo-300 cursor-pointer transition" onClick={() => { setPlan(p.plan); setView('editor'); }}>
-                            <h4 className="font-black text-slate-800 uppercase text-[11px] mb-1">{p.title}</h4>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{p.grade} • {p.dateCreated}</p>
+                         <div key={p.id} className="p-8 bg-slate-50 border border-slate-100 rounded-[2.5rem] hover:border-indigo-400 hover:bg-white cursor-pointer transition-all shadow-sm" onClick={() => { setPlan(p.plan); setView('editor'); }}>
+                            <h4 className="font-black text-slate-800 uppercase text-[12px] mb-2">{p.title}</h4>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{p.grade} &bull; {p.dateCreated}</p>
                          </div>
                        ))}
                     </div>
                  </div>
                  <div>
-                    <h3 className="text-xs font-black uppercase text-emerald-900 mb-6 tracking-widest flex items-center gap-3">
-                      <i className="fas fa-file-alt"></i> Saved Study Notes ({(savedNotes || []).length})
+                    <h3 className="text-xs font-black uppercase text-emerald-900 mb-8 tracking-widest flex items-center gap-4">
+                      <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center"><i className="fas fa-file-alt"></i></div>
+                      Saved Study Notes ({(savedNotes || []).length})
                     </h3>
-                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-4 custom-scrollbar">
+                    <div className="space-y-4 max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
                        {(savedNotes || []).map(n => (
-                         <div key={n.id} className="p-6 bg-slate-50 border border-slate-100 rounded-[2rem] hover:border-emerald-300 cursor-pointer transition" onClick={() => { setNotes(n.content); setInput({...input, subject: n.subject, grade: n.grade}); setView('editor'); }}>
-                            <h4 className="font-black text-slate-800 uppercase text-[11px] mb-1">{n.title}</h4>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{n.grade} • {n.dateCreated}</p>
+                         <div key={n.id} className="p-8 bg-slate-50 border border-slate-100 rounded-[2.5rem] hover:border-emerald-400 hover:bg-white cursor-pointer transition-all shadow-sm" onClick={() => { setNotes(n.content); setInput({...input, subject: n.subject, grade: n.grade}); setView('editor'); }}>
+                            <h4 className="font-black text-slate-800 uppercase text-[12px] mb-2">{n.title}</h4>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{n.grade} &bull; {n.dateCreated}</p>
                          </div>
                        ))}
                     </div>
