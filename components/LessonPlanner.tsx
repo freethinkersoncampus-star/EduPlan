@@ -49,7 +49,10 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
     try {
       const result = await generateLessonPlan(subj, grd, strnd, subStrnd, userProfile.school || "CBE SCHOOL", knowledgeContext);
       setPlan(result);
-    } catch (err: any) { alert("Generation Error: " + err.message); } 
+    } catch (err: any) { 
+      console.error("DeepSeek Plan Generation Failed:", err);
+      alert("DeepSeek Service: " + err.message); 
+    } 
     finally { setLoadingPlan(false); }
   };
 
@@ -57,15 +60,21 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
     if (!subj || !subStrnd) return alert("Select subject and sub-strand.");
     setLoadingNotes(true); setNotes('');
     try {
-      const result = await generateLessonNotes(subj, grd, subStrnd, "", knowledgeContext);
+      const result = await generateLessonNotes(subj, grd, subStrnd);
       setNotes(result);
-    } catch (err: any) { alert("Notes Error: " + err.message); } 
+    } catch (err: any) { 
+      console.error("DeepSeek Notes Generation Failed:", err);
+      alert("DeepSeek Service: " + err.message); 
+    } 
     finally { setLoadingNotes(false); }
   };
 
+  // Helper to safely access arrays and prevent .map() crashes
+  const safeArray = (arr: any) => Array.isArray(arr) ? arr : [];
+
   const saveCurrentPlan = () => {
     if (!plan) return;
-    const entry: SavedLessonPlan = { id: Date.now().toString(), dateCreated: new Date().toLocaleDateString(), title: `${plan.learningArea} - ${plan.subStrand}`, subject: plan.learningArea, grade: plan.grade, plan: plan };
+    const entry: SavedLessonPlan = { id: Date.now().toString(), dateCreated: new Date().toLocaleDateString(), title: `${plan.learningArea || 'Lesson'} - ${plan.subStrand || 'Topic'}`, subject: plan.learningArea || '', grade: plan.grade || '', plan: plan };
     setSavedPlans([entry, ...savedPlans]); alert("Plan Saved to Archive.");
   };
 
@@ -91,18 +100,18 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <div>
                     <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1">Workload Pair</label>
-                    <select className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 font-black text-[10px] uppercase" value={`${input.subject}|${input.grade}`} onChange={e => { const [s,g] = e.target.value.split('|'); setInput({...input, subject: s, grade: g}); }}>
+                    <select className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 font-black text-[10px] uppercase outline-none" value={`${input.subject}|${input.grade}`} onChange={e => { const [s,g] = e.target.value.split('|'); setInput({...input, subject: s, grade: g}); }}>
                       <option value="|">-- SELECT --</option>
                       {userProfile.subjects.map(p => <option key={p.id} value={`${p.subject}|${p.grade}`}>{p.subject} ({p.grade})</option>)}
                     </select>
                 </div>
                 <div>
                     <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1">Learning Strand</label>
-                    <input className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-[10px] font-black uppercase" value={input.strand} onChange={e => setInput({...input, strand: e.target.value})} placeholder="e.g. Scientific Investigation" />
+                    <input className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-[10px] font-black uppercase outline-none" value={input.strand} onChange={e => setInput({...input, strand: e.target.value})} placeholder="e.g. Scientific Investigation" />
                 </div>
                 <div className="md:col-span-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block ml-1">Sub-Strand / Topic</label>
-                    <input className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-[10px] font-black uppercase" value={input.subStrand} onChange={e => setInput({...input, subStrand: e.target.value})} placeholder="e.g. Laboratory Safety" />
+                    <input className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 text-[10px] font-black uppercase outline-none" value={input.subStrand} onChange={e => setInput({...input, subStrand: e.target.value})} placeholder="e.g. Laboratory Safety" />
                 </div>
              </div>
              <div className="flex gap-4">
@@ -119,7 +128,6 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
 
            {(plan || notes || loadingPlan || loadingNotes) && (
              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* HIGH-FIDELITY CBE LESSON PLAN DOCUMENT */}
                 <div className="bg-white p-10 md:p-14 rounded-[3.5rem] border border-slate-100 shadow-2xl relative min-h-[900px] print:border-black print:p-8 lesson-plan-card">
                    {loadingPlan ? (
                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 z-20 rounded-[3.5rem]">
@@ -136,13 +144,11 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                            </div>
                         </div>
 
-                        {/* Formal Document Header */}
                         <div className="text-center border-b-2 border-black pb-6 mb-10">
                            <h1 className="text-2xl font-black uppercase underline underline-offset-8 text-black tracking-tight">{plan.year || 2026} RATIONALIZED {(plan.learningArea || '').toUpperCase()} LESSON PLAN</h1>
                            <h2 className="text-sm font-black uppercase mt-3 text-black">TERM {plan.term || 'ONE'} — {plan.textbook || 'KICD APPROVED TEXT'}</h2>
                         </div>
 
-                        {/* Formal Metadata Table */}
                         <div className="grid grid-cols-2 gap-x-16 gap-y-4 text-[12px] font-bold border-b-2 border-black pb-8 mb-10 text-black">
                            <p className="flex justify-between"><span>STRAND:</span> <span className="font-black uppercase">{plan.strand || '-'}</span></p>
                            <p className="flex justify-between"><span>DATE:</span> <span className="font-black uppercase">{plan.date || new Date().toLocaleDateString()}</span></p>
@@ -150,62 +156,54 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                            <p className="flex justify-between"><span>ROLL:</span> <span className="font-black uppercase">{plan.roll || '-'}</span></p>
                         </div>
 
-                        {/* CBE Pillars Section */}
                         <div className="border-2 border-black p-8 space-y-5 rounded-2xl bg-slate-50/20 mb-10 text-black">
-                           <p className="text-[13px] leading-relaxed"><span className="font-black underline uppercase text-[11px] mr-2">CORE COMPETENCIES:</span> {(plan.coreCompetencies || []).join(', ')}</p>
-                           <p className="text-[13px] leading-relaxed"><span className="font-black underline uppercase text-[11px] mr-2">VALUES:</span> {(plan.values || []).join(', ')}</p>
-                           <p className="text-[13px] leading-relaxed"><span className="font-black underline uppercase text-[11px] mr-2">PCIs:</span> {(plan.pcis || []).join(', ')}</p>
-                           <p className="text-[13px] leading-relaxed"><span className="font-black underline uppercase text-[11px] mr-2">KIQs:</span> <span className="italic">{(plan.keyInquiryQuestions || []).join(' ')}</span></p>
+                           <p className="text-[13px] leading-relaxed"><span className="font-black underline uppercase text-[11px] mr-2">CORE COMPETENCIES:</span> {safeArray(plan.coreCompetencies).join(', ') || 'N/A'}</p>
+                           <p className="text-[13px] leading-relaxed"><span className="font-black underline uppercase text-[11px] mr-2">VALUES:</span> {safeArray(plan.values).join(', ') || 'N/A'}</p>
+                           <p className="text-[13px] leading-relaxed"><span className="font-black underline uppercase text-[11px] mr-2">PCIs:</span> {safeArray(plan.pcis).join(', ') || 'N/A'}</p>
+                           <p className="text-[13px] leading-relaxed"><span className="font-black underline uppercase text-[11px] mr-2">KIQs:</span> <span className="italic">{safeArray(plan.keyInquiryQuestions).join(' ') || 'N/A'}</span></p>
                         </div>
 
                         <div className="space-y-10 text-black">
-                           {/* Learning Outcomes & Resources */}
                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                               <div>
                                  <h4 className="font-black underline uppercase mb-4 text-[12px]">Learning Outcomes:</h4>
-                                 <ul className="list-disc pl-8 space-y-2 font-medium text-[13px]">{(plan.outcomes || []).map((o,i)=><li key={i}>{o}</li>)}</ul>
+                                 <ul className="list-disc pl-8 space-y-2 font-medium text-[13px]">{safeArray(plan.outcomes).map((o,i)=><li key={i}>{o}</li>)}</ul>
                               </div>
                               <div>
                                  <h4 className="font-black underline uppercase mb-4 text-[12px]">Learning Resources:</h4>
-                                 <ul className="list-disc pl-8 space-y-2 font-medium text-[13px]">{(plan.learningResources || []).map((r,i)=><li key={i}>{r}</li>)}</ul>
+                                 <ul className="list-disc pl-8 space-y-2 font-medium text-[13px]">{safeArray(plan.learningResources).map((r,i)=><li key={i}>{r}</li>)}</ul>
                               </div>
                            </div>
 
-                           {/* Formal Organization of Learning Section */}
                            <div className="space-y-10">
                               <h4 className="font-black underline uppercase border-b-2 border-black pb-2 text-[14px] tracking-tight">Organization of Learning:</h4>
                               
                               <div className="space-y-10">
-                                 {/* Introduction Section */}
                                  <div className="pl-6 border-l-4 border-slate-300">
                                     <h5 className="font-black uppercase mb-3 text-[12px]">Introduction (5 minutes)</h5>
-                                    <p className="text-[13px] leading-relaxed">{(plan.introduction || []).join(' ')}</p>
+                                    <p className="text-[13px] leading-relaxed">{safeArray(plan.introduction).join(' ') || 'Class begins with a review...'}</p>
                                  </div>
 
-                                 {/* Lesson Development Section */}
                                  <div className="space-y-10">
                                     <h5 className="font-black uppercase border-l-4 border-indigo-600 pl-6 text-[12px]">Lesson Development (30 minutes)</h5>
-                                    {(plan.lessonDevelopment || []).map((step, idx) => (
+                                    {safeArray(plan.lessonDevelopment).length > 0 ? safeArray(plan.lessonDevelopment).map((step, idx) => (
                                        <div key={idx} className="ml-6 p-8 bg-slate-50/50 rounded-3xl border border-slate-100 shadow-sm">
-                                          <p className="font-black italic mb-4 text-indigo-950 text-[13px]">Step {idx+1}: {step.title} ({step.duration})</p>
-                                          <ul className="list-disc pl-8 space-y-3 text-[13px] leading-relaxed">{(step.content || []).map((c,si)=><li key={si}>{c}</li>)}</ul>
+                                          <p className="font-black italic mb-4 text-indigo-950 text-[13px]">Step {idx+1}: {step.title || 'Discussion'} ({step.duration || '5m'})</p>
+                                          <ul className="list-disc pl-8 space-y-3 text-[13px] leading-relaxed">{safeArray(step.content).map((c,si)=><li key={si}>{c}</li>)}</ul>
                                        </div>
-                                    ))}
+                                    )) : <p className="ml-6 text-[13px] italic text-slate-400">Lesson development steps were not generated. Please try again.</p>}
                                  </div>
 
-                                 {/* Conclusion Section */}
                                  <div className="pl-6 border-l-4 border-slate-300">
                                     <h5 className="font-black uppercase mb-3 text-[12px]">Conclusion (5 minutes)</h5>
-                                    <p className="text-[13px] leading-relaxed">{(plan.conclusion || []).join(' ')}</p>
+                                    <p className="text-[13px] leading-relaxed">{safeArray(plan.conclusion).join(' ') || 'Lesson ends with a summary...'}</p>
                                  </div>
 
-                                 {/* Extended Activities */}
                                  <div>
                                     <h4 className="font-black underline uppercase mb-4 text-[12px]">Extended Activities:</h4>
-                                    <ul className="list-disc pl-8 space-y-3 text-[13px] leading-relaxed">{(plan.extendedActivities || []).map((ea,i)=><li key={i}>{ea}</li>)}</ul>
+                                    <ul className="list-disc pl-8 space-y-3 text-[13px] leading-relaxed">{safeArray(plan.extendedActivities).map((ea,i)=><li key={i}>{ea}</li>)}</ul>
                                  </div>
 
-                                 {/* Self-Evaluation Section */}
                                  <div className="pt-10 border-t-2 border-black mt-16">
                                     <h5 className="font-black uppercase italic underline text-[11px] mb-4">Teacher Self-Evaluation:</h5>
                                     <div className="w-full h-12 border-b border-black border-dashed opacity-30 mb-4"></div>
@@ -218,7 +216,6 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                    ) : <div className="h-full flex flex-col items-center justify-center text-slate-200 uppercase font-black text-[10px] py-60"><i className="fas fa-file-signature text-7xl mb-6 opacity-10"></i><span>Plan Preview Canvas</span></div>}
                 </div>
 
-                {/* Subject Study Notes */}
                 <div className="bg-white p-10 md:p-14 rounded-[3.5rem] border border-slate-100 shadow-2xl relative min-h-[900px] print:border-black print:p-8 notes-card">
                    {loadingNotes ? (
                      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 z-20 rounded-[3.5rem]">
