@@ -1,8 +1,7 @@
 import { SOWRow, LessonPlan } from "../types";
 
 /**
- * RESTORED DEEPSEEK ENGINE
- * Using the paid DeepSeek-V3 model to prevent Google API Key errors.
+ * DEEPSEEK-V3 CORE ENGINE
  */
 async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: boolean = false) {
   const apiKey = process.env.API_KEY;
@@ -21,14 +20,14 @@ async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: bo
         { role: "user", content: userPrompt }
       ],
       response_format: isJson ? { type: "json_object" } : undefined,
-      temperature: 0.3, // Lower temperature for more factual pedagogical content
-      max_tokens: 4000
+      temperature: 0.2, // Higher precision for curriculum data
+      max_tokens: 4096
     })
   });
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `API Error: ${response.status}`);
+    throw new Error(errorData.error?.message || `Service Interruption: ${response.status}`);
   }
 
   const data = await response.json();
@@ -39,11 +38,11 @@ function extractJSON(text: string) {
   let cleaned = text.trim();
   const jsonMatch = cleaned.match(/```json\n([\s\S]*?)\n```/) || cleaned.match(/{[\s\S]*}/);
   let jsonString = jsonMatch ? (jsonMatch[1] || jsonMatch[0]) : cleaned;
-  try { return JSON.parse(jsonString); } catch (e) { throw new Error("Data integrity check failed."); }
+  try { return JSON.parse(jsonString); } catch (e) { throw new Error("Pedagogical data integrity check failed."); }
 }
 
 /**
- * Generates substantive SOW content (40/40/20 rule).
+ * Generates Term-Specific SOW (40/40/20 partitioning).
  */
 export const generateSOWChunk = async (
   subject: string, 
@@ -54,15 +53,22 @@ export const generateSOWChunk = async (
   lessonsPerWeek: number,
   knowledgeContext?: string
 ): Promise<SOWRow[]> => {
-  const partition = term === 1 ? "FIRST 40%" : term === 2 ? "MIDDLE 40%" : "FINAL 20%";
-  
-  const systemInstruction = `You are a KICD Curriculum Specialist.
-    TASK: Generate a DETAILED CBE Rationalized SOW for ${subject} ${grade}, Term ${term}.
-    PARTITION: Focus exclusively on the ${partition} of the syllabus.
-    QUALITY: NO EMPTY SHELLS. Every cell must contain specific, high-quality pedagogical content.
-    Return JSON: { "lessons": [{ "week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection" }] }`;
+  const partitionRange = term === 1 
+    ? "SYLLABUS SEGMENT: Strictly use ONLY the first 40% of the annual topics provided in the curriculum documents."
+    : term === 2
+    ? "SYLLABUS SEGMENT: Strictly use ONLY the middle 40% (segment from 40% to 80%) of the annual topics."
+    : "SYLLABUS SEGMENT: Strictly use ONLY the final 20% (segment from 80% to 100%) of the annual topics.";
 
-  const userPrompt = `Generate weeks ${startWeek}-${endWeek} for ${subject} ${grade}. Context: ${knowledgeContext || 'Standard KICD'}`;
+  const systemInstruction = `You are a Senior KICD Curriculum Specialist for CBE.
+    MANDATE:
+    1. ${partitionRange} DO NOT generate topics from the whole year.
+    2. ZERO PLACEHOLDERS: Every outcome and experience must be SUBSTANTIVE and specific. No generic text.
+    3. WEEKLY FLOW: Respect the ${lessonsPerWeek} lessons per week requirement.
+    Return JSON: { "lessons": [{ "week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection" }] }
+    
+    CURRICULUM CONTEXT: ${knowledgeContext || 'Standard KICD CBE Guidelines'}`;
+
+  const userPrompt = `Architect SOW for ${subject} Grade ${grade}, Term ${term}, Weeks ${startWeek} to ${endWeek}.`;
 
   try {
     const result = await callDeepseek(systemInstruction, userPrompt, true);
@@ -72,7 +78,7 @@ export const generateSOWChunk = async (
 };
 
 /**
- * Generates a full-content CBE Lesson Plan.
+ * Generates high-fidelity CBE Lesson Plans.
  */
 export const generateLessonPlan = async (
   subject: string,
@@ -82,17 +88,17 @@ export const generateLessonPlan = async (
   schoolName: string,
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
-  const systemInstruction = `You are a Senior KICD CBE Expert. 
-    TASK: Create a substantive, professional Lesson Plan.
-    STRICT CBE MANDATE:
-    1. Core Competencies: Identify 3 specific ones.
-    2. Values: Identify 3 specific ones.
-    3. PCIs: Identify 2 pertinent contemporary issues.
-    4. Organization: Step-by-step teacher and learner activities. 
-    NO PLACEHOLDERS. NO DASHES. Provide real classroom examples.
-    Return JSON matching the LessonPlan type.`;
+  const systemInstruction = `You are a Senior KICD CBE Pedagogy Expert.
+    MANDATE:
+    - NO SHELLS. NO PLACEHOLDERS like 'Teacher explains'. Provide EXACT content.
+    - CORE COMPETENCIES: Provide at least 3 specific CCs relevant to ${subStrand}.
+    - VALUES: Provide at least 3 specific Values.
+    - PCIs: Provide 2 relevant Pertinent Contemporary Issues.
+    - LESSON DEVELOPMENT: Describe specific step-by-step teacher actions and learner actions.
+    Return JSON matching the LessonPlan type.
+    Context: ${knowledgeContext || ''}`;
 
-  const userPrompt = `Subject: ${subject}, Grade: ${grade}, Strand: ${strand}, Sub-Strand: ${subStrand}, School: ${schoolName}. Use context: ${knowledgeContext || ''}`;
+  const userPrompt = `Architect a complete CBE Lesson Plan for ${subject} Grade ${grade} - ${subStrand} at ${schoolName}.`;
 
   try {
     const result = await callDeepseek(systemInstruction, userPrompt, true);
@@ -101,7 +107,7 @@ export const generateLessonPlan = async (
 };
 
 export const generateLessonNotes = async (subj: string, grd: string, topic: string, context?: string, docs?: string): Promise<string> => {
-  const sys = `Subject Matter Expert for Grade ${grd}. Provide clear, comprehensive notes in Markdown.`;
+  const sys = `Expert Pedagogue. Provide clear, comprehensive Markdown study notes for Grade ${grd}.`;
   const usr = `Generate study notes for ${subj} - ${topic}. Docs: ${docs || ''}`;
   return await callDeepseek(sys, usr, false);
 };
