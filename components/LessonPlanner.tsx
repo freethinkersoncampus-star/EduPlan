@@ -50,8 +50,8 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
       const result = await generateLessonPlan(subj, grd, strnd, subStrnd, userProfile.school || "CBE SCHOOL", knowledgeContext);
       setPlan(result);
     } catch (err: any) { 
-      console.error("DeepSeek Plan Generation Failed:", err);
-      alert("DeepSeek Service: " + err.message); 
+      console.error("DeepSeek Service Error:", err);
+      alert("AI Generation Issue: " + err.message); 
     } 
     finally { setLoadingPlan(false); }
   };
@@ -63,18 +63,15 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
       const result = await generateLessonNotes(subj, grd, subStrnd);
       setNotes(result);
     } catch (err: any) { 
-      console.error("DeepSeek Notes Generation Failed:", err);
-      alert("DeepSeek Service: " + err.message); 
+      alert("Notes Error: " + err.message); 
     } 
     finally { setLoadingNotes(false); }
   };
 
-  // Helper to safely access arrays and prevent .map() crashes
   const safeArray = (arr: any) => Array.isArray(arr) ? arr : [];
 
   const saveCurrentPlan = () => {
     if (!plan) return;
-    // Prioritize input.subject if plan.learningArea is generic or missing
     const subjectName = (plan.learningArea && plan.learningArea !== '-' && plan.learningArea !== 'Lesson') 
       ? plan.learningArea 
       : input.subject;
@@ -87,24 +84,17 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
       grade: plan.grade || input.grade, 
       plan: { ...plan, learningArea: subjectName } 
     };
-    setSavedPlans([entry, ...savedPlans]); alert("Plan Saved to Archive.");
+    setSavedPlans([entry, ...savedPlans]); alert("Professional Plan Saved to Vault.");
   };
 
   const saveCurrentNotes = () => {
     if (!notes) return;
     const entry: SavedLessonNote = { id: Date.now().toString(), dateCreated: new Date().toLocaleDateString(), title: `${input.subject} - ${input.subStrand} Notes`, content: notes, subject: input.subject, grade: input.grade };
-    setSavedNotes([entry, ...savedNotes]); alert("Notes Saved to Archive.");
+    setSavedNotes([entry, ...savedNotes]); alert("Study Notes Saved to Vault.");
   };
 
-  const handleDownloadPlanDoc = () => {
-    if (!plan) return;
-    exportLessonPlanToDocx(plan, userProfile);
-  };
-
-  const handleDownloadNotesDoc = () => {
-    if (!notes) return;
-    exportNotesToDocx(`${input.subject} - ${input.subStrand} Notes`, notes);
-  };
+  const handleDownloadPlanDoc = () => { if (plan) exportLessonPlanToDocx(plan, userProfile); };
+  const handleDownloadNotesDoc = () => { if (notes) exportNotesToDocx(`${input.subject} - ${input.subStrand} Notes`, notes); };
 
   return (
     <div className="p-4 md:p-8 pb-24 font-inter">
@@ -137,11 +127,11 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                 </div>
              </div>
              <div className="flex gap-4">
-                <button onClick={() => handleGeneratePlan()} disabled={loadingPlan || !input.subStrand} className="flex-1 bg-indigo-600 text-white font-black py-5 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl hover:bg-indigo-700 transition disabled:opacity-30">
+                <button onClick={() => handleGeneratePlan()} disabled={loadingPlan || !input.subStrand} className="flex-1 bg-indigo-600 text-white font-black py-5 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl hover:bg-indigo-700 transition">
                   {loadingPlan ? <i className="fas fa-spinner fa-spin mr-3"></i> : <i className="fas fa-magic mr-3"></i>} 
                   {loadingPlan ? 'ARCHITECTING...' : 'GENERATE CBE LESSON PLAN'}
                 </button>
-                <button onClick={() => handleGenerateNotes()} disabled={loadingNotes || !input.subStrand} className="flex-1 bg-emerald-600 text-white font-black py-5 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl hover:bg-emerald-700 transition disabled:opacity-30">
+                <button onClick={() => handleGenerateNotes()} disabled={loadingNotes || !input.subStrand} className="flex-1 bg-emerald-600 text-white font-black py-5 rounded-2xl text-[10px] uppercase tracking-widest shadow-xl hover:bg-emerald-700 transition">
                   {loadingNotes ? <i className="fas fa-spinner fa-spin mr-3"></i> : <i className="fas fa-file-alt mr-3"></i>}
                   {loadingNotes ? 'COMPILING...' : 'GENERATE STUDY NOTES'}
                 </button>
@@ -160,10 +150,10 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                      <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
                         <div className="flex flex-wrap gap-2 justify-between border-b pb-6 mb-10 print:hidden">
                            <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Rationalized CBE Plan</span>
-                           <div className="flex flex-wrap gap-2">
-                              <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition hover:bg-black"><i className="fas fa-print mr-2"></i>PRINT</button>
-                              <button onClick={handleDownloadPlanDoc} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition hover:bg-blue-700"><i className="fas fa-file-word mr-2"></i>DOCX</button>
-                              <button onClick={saveCurrentPlan} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition">SAVE VAULT</button>
+                           <div className="flex gap-2">
+                              <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase"><i className="fas fa-print mr-2"></i>PRINT</button>
+                              <button onClick={handleDownloadPlanDoc} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase"><i className="fas fa-file-word mr-2"></i>DOCX</button>
+                              <button onClick={saveCurrentPlan} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100">SAVE VAULT</button>
                            </div>
                         </div>
 
@@ -226,12 +216,6 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                                     <h4 className="font-black underline uppercase mb-4 text-[12px]">Extended Activities:</h4>
                                     <ul className="list-disc pl-8 space-y-3 text-[13px] leading-relaxed">{safeArray(plan.extendedActivities).map((ea,i)=><li key={i}>{ea}</li>)}</ul>
                                  </div>
-
-                                 <div className="pt-10 border-t-2 border-black mt-16">
-                                    <h5 className="font-black uppercase italic underline text-[11px] mb-4">Teacher Self-Evaluation:</h5>
-                                    <div className="w-full h-12 border-b border-black border-dashed opacity-30 mb-4"></div>
-                                    <div className="w-full h-12 border-b border-black border-dashed opacity-30"></div>
-                                 </div>
                               </div>
                            </div>
                         </div>
@@ -249,10 +233,10 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                      <div className="animate-in fade-in duration-700">
                         <div className="flex flex-wrap gap-2 justify-between border-b pb-6 mb-10 print:hidden">
                            <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Comprehensive Study Notes</span>
-                           <div className="flex flex-wrap gap-2">
-                              <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition hover:bg-black"><i className="fas fa-print mr-2"></i>PRINT</button>
-                              <button onClick={handleDownloadNotesDoc} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition hover:bg-blue-700"><i className="fas fa-file-word mr-2"></i>DOCX</button>
-                              <button onClick={saveCurrentNotes} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition">SAVE VAULT</button>
+                           <div className="flex gap-2">
+                              <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase"><i className="fas fa-print mr-2"></i>PRINT</button>
+                              <button onClick={handleDownloadNotesDoc} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase"><i className="fas fa-file-word mr-2"></i>DOCX</button>
+                              <button onClick={saveCurrentNotes} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100">SAVE VAULT</button>
                            </div>
                         </div>
                         <div className="prose prose-sm md:prose-base max-w-none text-black prose-headings:font-black prose-headings:uppercase prose-headings:tracking-tight prose-li:font-medium"><ReactMarkdown remarkPlugins={[remarkGfm]}>{notes}</ReactMarkdown></div>

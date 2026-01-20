@@ -1,8 +1,9 @@
+
 import { SOWRow, LessonPlan } from "../types";
 
 /**
  * DEEPSEEK-V3 ENGINE
- * Optimized for cost-efficiency and KICD CBE Consistency
+ * Re-implemented as requested by the user following account top-up.
  */
 async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: boolean = false) {
   const apiKey = process.env.API_KEY;
@@ -21,7 +22,7 @@ async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: bo
         { role: "user", content: userPrompt }
       ],
       response_format: isJson ? { type: "json_object" } : undefined,
-      temperature: 0.1, // Minimal randomness for curriculum accuracy
+      temperature: 0.1, 
       max_tokens: 4096
     })
   });
@@ -35,23 +36,18 @@ async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: bo
   return data.choices[0].message.content;
 }
 
-/**
- * Robust JSON cleaner to prevent "Blank Screen" crashes caused by Markdown wrappers
- */
 function extractJSON(text: string) {
   let cleaned = text.trim();
-  // Remove markdown JSON code blocks if present
   if (cleaned.startsWith("```json")) {
     cleaned = cleaned.replace(/^```json\n?/, "").replace(/\n?```$/, "");
   } else if (cleaned.startsWith("```")) {
     cleaned = cleaned.replace(/^```\n?/, "").replace(/\n?```$/, "");
   }
-  
   try {
     return JSON.parse(cleaned);
   } catch (e) {
-    console.error("Raw text that failed parsing:", text);
-    throw new Error("AI output was not valid JSON. Please try again.");
+    console.error("DeepSeek JSON Parse Error:", text);
+    throw new Error("AI output was malformed. Please try again.");
   }
 }
 
@@ -65,10 +61,11 @@ export const generateSOWChunk = async (
   knowledgeContext?: string
 ): Promise<SOWRow[]> => {
   const systemInstruction = `You are a Senior KICD Curriculum Specialist. 
-    TASK: Architect a CBE SOW for Weeks ${startWeek}-${endWeek}.
-    Return ONLY a JSON object: { "lessons": [{ "week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection" }] }`;
+    TASK: Architect a CBE SOW for Weeks ${startWeek}-${endWeek} based on RATIONALIZED DESIGNS.
+    REFERENCING: Use the provided Knowledge Base documents to align with KICD Rationalized Designs.
+    MANDATORY: Return ONLY a JSON object: { "lessons": [{ "week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection" }] }`;
 
-  const userPrompt = `Subject: ${subject}, Grade: ${grade}, Term: ${term}, Lessons/Week: ${lessonsPerWeek}. Context: ${knowledgeContext || ''}`;
+  const userPrompt = `Subject: ${subject}, Grade: ${grade}, Term: ${term}, Lessons/Week: ${lessonsPerWeek}. Knowledge Context: ${knowledgeContext || 'Standard KICD Guidelines'}`;
 
   try {
     const result = await callDeepseek(systemInstruction, userPrompt, true);
@@ -89,43 +86,18 @@ export const generateLessonPlan = async (
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
   const systemInstruction = `You are a Senior KICD CBE Pedagogy Expert.
-    TASK: Architect a SUBSTANTIVE Lesson Plan for the subject: ${subject}.
-    CRITICAL: You MUST include the key "lessonDevelopment" as an array of objects.
-    CRITICAL: You MUST set "learningArea" to "${subject}".
-    
-    JSON SCHEMA:
-    {
-      "learningArea": "${subject}",
-      "strand": "${strand}",
-      "subStrand": "${subStrand}",
-      "grade": "${grade}",
-      "term": "ONE",
-      "year": 2026,
-      "textbook": "Spark KICD Approved Text",
-      "coreCompetencies": ["string"],
-      "values": ["string"],
-      "pcis": ["string"],
-      "keyInquiryQuestions": ["string"],
-      "outcomes": ["string"],
-      "learningResources": ["string"],
-      "introduction": ["string"],
-      "lessonDevelopment": [
-        { "title": "Step 1: Introduction", "duration": "10m", "content": ["Teacher does X", "Learners do Y"] },
-        { "title": "Step 2: Exploration", "duration": "10m", "content": ["Teacher explains...", "Group activity..."] }
-      ],
-      "conclusion": ["string"],
-      "extendedActivities": ["string"],
-      "teacherSelfEvaluation": "string"
-    }
-    Return ONLY the raw JSON object.`;
+    TASK: Architect a SUBSTANTIVE Lesson Plan for ${subject}.
+    CRITICAL: You MUST include the "lessonDevelopment" key as an array of 3-4 distinct steps.
+    EACH STEP MUST HAVE: "title" (e.g. Step 1: Introduction), "duration" (e.g. 10m), and "content" (array of teacher/learner actions).
+    CRITICAL: "learningArea" MUST be strictly set to "${subject}".
+    Return ONLY a JSON object following the LessonPlan interface structure precisely.`;
 
-  const userPrompt = `Generate Lesson Plan for ${subject} Grade ${grade}. Topic: ${subStrand}. School: ${schoolName}. Context: ${knowledgeContext || ''}`;
+  const userPrompt = `Generate a Lesson Plan for ${subject} Grade ${grade}. Topic: ${subStrand}. Strand: ${strand}. School: ${schoolName}. Knowledge Context: ${knowledgeContext || ''}`;
 
   try {
     const result = await callDeepseek(systemInstruction, userPrompt, true);
     const parsed = extractJSON(result);
-    // Force set learning area if AI misses it
-    if (!parsed.learningArea || parsed.learningArea === '-') {
+    if (!parsed.learningArea || parsed.learningArea === '-' || parsed.learningArea === 'Lesson') {
       parsed.learningArea = subject;
     }
     return parsed as LessonPlan;
@@ -133,7 +105,7 @@ export const generateLessonPlan = async (
 };
 
 export const generateLessonNotes = async (subj: string, grd: string, topic: string): Promise<string> => {
-  const sys = `Expert Subject Pedagogue. Generate detailed Markdown study notes for Grade ${grd} students. Use bold headers and lists.`;
-  const usr = `Generate comprehensive study notes for ${subj} - ${topic}.`;
+  const sys = `Expert Subject Pedagogue. Generate detailed Markdown study notes for Grade ${grd} students following KICD guidelines. Use bold headers.`;
+  const usr = `Generate study notes for ${subj} - ${topic}.`;
   return await callDeepseek(sys, usr, false);
 };

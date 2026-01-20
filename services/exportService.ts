@@ -1,3 +1,4 @@
+
 import { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, AlignmentType, WidthType, BorderStyle } from 'docx';
 import saveAs from 'file-saver';
 import { SOWRow, LessonPlan, UserProfile } from '../types';
@@ -14,7 +15,8 @@ export const exportSOWToDocx = async (sow: SOWRow[], meta: any, profile: UserPro
       "Wk", "Lsn", "Date", "Strand", "Sub Strand", "Outcomes", "Experiences", "Resources", "Assessment"
     ].map(text => new TableCell({
       children: [new Paragraph({ children: [new TextRun({ text, bold: true, size: 18 })], alignment: AlignmentType.CENTER })],
-      shading: { fill: "F3F4F6" }
+      shading: { fill: "F3F4F6" },
+      borders: { top: BORDER_STYLE, bottom: BORDER_STYLE, left: BORDER_STYLE, right: BORDER_STYLE }
     }))
   });
 
@@ -30,7 +32,8 @@ export const exportSOWToDocx = async (sow: SOWRow[], meta: any, profile: UserPro
       r.learningResources,
       r.assessmentMethods
     ].map(text => new TableCell({
-      children: [new Paragraph({ children: [new TextRun({ text: text || "", size: 16 })] })]
+      children: [new Paragraph({ children: [new TextRun({ text: text || "", size: 16 })] })],
+      borders: { top: BORDER_STYLE, bottom: BORDER_STYLE, left: BORDER_STYLE, right: BORDER_STYLE }
     }))
   }));
 
@@ -39,18 +42,33 @@ export const exportSOWToDocx = async (sow: SOWRow[], meta: any, profile: UserPro
       properties: { page: { size: { orientation: "landscape" } } },
       children: [
         new Paragraph({
-          children: [new TextRun({ text: `${meta.year} ${meta.subject} ${meta.grade} SCHEMES OF WORK TERM ${meta.term}`, bold: true, size: 28, underline: {} })],
+          children: [new TextRun({ text: profile.school || "KICD MASTER SCHOOL", bold: true, size: 32 })],
+          alignment: AlignmentType.CENTER,
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: `${meta.year} RATIONALIZED ${meta.subject.toUpperCase()} ${meta.grade.toUpperCase()} SCHEMES OF WORK`, bold: true, size: 28, underline: {} })],
           alignment: AlignmentType.CENTER,
           spacing: { after: 200 }
         }),
         new Paragraph({
-          children: [new TextRun({ text: `Teacher: ${profile.name} | School: ${profile.school}`, size: 20 })],
+          children: [new TextRun({ text: `TERM ${meta.term} | DURATION: ${meta.termStart} - ${meta.termEnd} | HALF-TERM: ${meta.halfTermStart} - ${meta.halfTermEnd}`, size: 18, bold: true })],
           alignment: AlignmentType.CENTER,
           spacing: { after: 400 }
         }),
         new Table({
           width: { size: 100, type: WidthType.PERCENTAGE },
           rows: [tableHeader, ...tableRows]
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: "\n\n", size: 20 })],
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: "Teacher Signature: _______________________      ", size: 20 }),
+            new TextRun({ text: "HOD Signature: _______________________      ", size: 20 }),
+            new TextRun({ text: "Date: _______________________", size: 20 }),
+          ],
+          alignment: AlignmentType.CENTER,
         })
       ],
     }],
@@ -65,12 +83,16 @@ export const exportLessonPlanToDocx = async (plan: LessonPlan, profile: UserProf
     sections: [{
       children: [
         new Paragraph({
-          children: [new TextRun({ text: `RATIONALIZED LESSON PLAN: ${plan.learningArea}`, bold: true, size: 32 })],
+          children: [new TextRun({ text: profile.school || "KICD MASTER SCHOOL", bold: true, size: 32 })],
+          alignment: AlignmentType.CENTER,
+        }),
+        new Paragraph({
+          children: [new TextRun({ text: `RATIONALIZED LESSON PLAN: ${plan.learningArea}`, bold: true, size: 28 })],
           alignment: AlignmentType.CENTER,
           spacing: { after: 200 }
         }),
         new Paragraph({
-          children: [new TextRun({ text: `School: ${profile.school} | Grade: ${plan.grade} | Term: ${plan.term}`, size: 20 })],
+          children: [new TextRun({ text: `Grade: ${plan.grade} | Term: ${plan.term} | Date: ${plan.date || '____/____/2026'}`, size: 20, bold: true })],
           alignment: AlignmentType.CENTER,
           spacing: { after: 400 }
         }),
@@ -97,7 +119,6 @@ export const exportLessonPlanToDocx = async (plan: LessonPlan, profile: UserProf
 };
 
 export const exportNotesToDocx = async (title: string, content: string) => {
-  // Simple markdown-ish to Paragraph conversion
   const lines = content.split('\n');
   const children = [
     new Paragraph({
