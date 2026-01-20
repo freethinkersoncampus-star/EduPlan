@@ -74,7 +74,19 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
 
   const saveCurrentPlan = () => {
     if (!plan) return;
-    const entry: SavedLessonPlan = { id: Date.now().toString(), dateCreated: new Date().toLocaleDateString(), title: `${plan.learningArea || 'Lesson'} - ${plan.subStrand || 'Topic'}`, subject: plan.learningArea || '', grade: plan.grade || '', plan: plan };
+    // Prioritize input.subject if plan.learningArea is generic or missing
+    const subjectName = (plan.learningArea && plan.learningArea !== '-' && plan.learningArea !== 'Lesson') 
+      ? plan.learningArea 
+      : input.subject;
+      
+    const entry: SavedLessonPlan = { 
+      id: Date.now().toString(), 
+      dateCreated: new Date().toLocaleDateString(), 
+      title: `${subjectName} - ${plan.subStrand || 'Topic'}`, 
+      subject: subjectName, 
+      grade: plan.grade || input.grade, 
+      plan: { ...plan, learningArea: subjectName } 
+    };
     setSavedPlans([entry, ...savedPlans]); alert("Plan Saved to Archive.");
   };
 
@@ -82,6 +94,16 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
     if (!notes) return;
     const entry: SavedLessonNote = { id: Date.now().toString(), dateCreated: new Date().toLocaleDateString(), title: `${input.subject} - ${input.subStrand} Notes`, content: notes, subject: input.subject, grade: input.grade };
     setSavedNotes([entry, ...savedNotes]); alert("Notes Saved to Archive.");
+  };
+
+  const handleDownloadPlanDoc = () => {
+    if (!plan) return;
+    exportLessonPlanToDocx(plan, userProfile);
+  };
+
+  const handleDownloadNotesDoc = () => {
+    if (!notes) return;
+    exportNotesToDocx(`${input.subject} - ${input.subStrand} Notes`, notes);
   };
 
   return (
@@ -136,16 +158,17 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                      </div>
                    ) : plan ? (
                      <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                        <div className="flex justify-between border-b pb-6 mb-10 print:hidden">
+                        <div className="flex flex-wrap gap-2 justify-between border-b pb-6 mb-10 print:hidden">
                            <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Rationalized CBE Plan</span>
-                           <div className="flex gap-3">
-                              <button onClick={() => window.print()} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition hover:bg-black"><i className="fas fa-print mr-2"></i>PRINT</button>
-                              <button onClick={saveCurrentPlan} className="bg-indigo-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition">SAVE VAULT</button>
+                           <div className="flex flex-wrap gap-2">
+                              <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition hover:bg-black"><i className="fas fa-print mr-2"></i>PRINT</button>
+                              <button onClick={handleDownloadPlanDoc} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition hover:bg-blue-700"><i className="fas fa-file-word mr-2"></i>DOCX</button>
+                              <button onClick={saveCurrentPlan} className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition">SAVE VAULT</button>
                            </div>
                         </div>
 
                         <div className="text-center border-b-2 border-black pb-6 mb-10">
-                           <h1 className="text-2xl font-black uppercase underline underline-offset-8 text-black tracking-tight">{plan.year || 2026} RATIONALIZED {(plan.learningArea || '').toUpperCase()} LESSON PLAN</h1>
+                           <h1 className="text-2xl font-black uppercase underline underline-offset-8 text-black tracking-tight">{plan.year || 2026} RATIONALIZED {(plan.learningArea || input.subject || '').toUpperCase()} LESSON PLAN</h1>
                            <h2 className="text-sm font-black uppercase mt-3 text-black">TERM {plan.term || 'ONE'} — {plan.textbook || 'KICD APPROVED TEXT'}</h2>
                         </div>
 
@@ -224,11 +247,12 @@ const LessonPlanner: React.FC<LessonPlannerProps> = ({
                      </div>
                    ) : notes ? (
                      <div className="animate-in fade-in duration-700">
-                        <div className="flex justify-between border-b pb-6 mb-10 print:hidden">
+                        <div className="flex flex-wrap gap-2 justify-between border-b pb-6 mb-10 print:hidden">
                            <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Comprehensive Study Notes</span>
-                           <div className="flex gap-3">
-                              <button onClick={() => window.print()} className="bg-slate-900 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition hover:bg-black"><i className="fas fa-print mr-2"></i>PRINT</button>
-                              <button onClick={saveCurrentNotes} className="bg-emerald-600 text-white px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition">SAVE VAULT</button>
+                           <div className="flex flex-wrap gap-2">
+                              <button onClick={() => window.print()} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition hover:bg-black"><i className="fas fa-print mr-2"></i>PRINT</button>
+                              <button onClick={handleDownloadNotesDoc} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition hover:bg-blue-700"><i className="fas fa-file-word mr-2"></i>DOCX</button>
+                              <button onClick={saveCurrentNotes} className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-emerald-100 hover:bg-emerald-700 transition">SAVE VAULT</button>
                            </div>
                         </div>
                         <div className="prose prose-sm md:prose-base max-w-none text-black prose-headings:font-black prose-headings:uppercase prose-headings:tracking-tight prose-li:font-medium"><ReactMarkdown remarkPlugins={[remarkGfm]}>{notes}</ReactMarkdown></div>

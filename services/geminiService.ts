@@ -89,22 +89,51 @@ export const generateLessonPlan = async (
   knowledgeContext?: string
 ): Promise<LessonPlan> => {
   const systemInstruction = `You are a Senior KICD CBE Pedagogy Expert.
-    TASK: Architect a SUBSTANTIVE Lesson Plan.
-    FORMAT: Use the 5-30-5 timing structure (Intro 5m, Dev 30m, Conc 5m).
-    Step-by-step teacher actions (NO placeholders like "Teacher explains").
-    Include 3 Extended Activities and 1 Teacher Self-Evaluation line.
-    Return ONLY a JSON object matching the LessonPlan type structure.`;
+    TASK: Architect a SUBSTANTIVE Lesson Plan for the subject: ${subject}.
+    CRITICAL: You MUST include the key "lessonDevelopment" as an array of objects.
+    CRITICAL: You MUST set "learningArea" to "${subject}".
+    
+    JSON SCHEMA:
+    {
+      "learningArea": "${subject}",
+      "strand": "${strand}",
+      "subStrand": "${subStrand}",
+      "grade": "${grade}",
+      "term": "ONE",
+      "year": 2026,
+      "textbook": "Spark KICD Approved Text",
+      "coreCompetencies": ["string"],
+      "values": ["string"],
+      "pcis": ["string"],
+      "keyInquiryQuestions": ["string"],
+      "outcomes": ["string"],
+      "learningResources": ["string"],
+      "introduction": ["string"],
+      "lessonDevelopment": [
+        { "title": "Step 1: Introduction", "duration": "10m", "content": ["Teacher does X", "Learners do Y"] },
+        { "title": "Step 2: Exploration", "duration": "10m", "content": ["Teacher explains...", "Group activity..."] }
+      ],
+      "conclusion": ["string"],
+      "extendedActivities": ["string"],
+      "teacherSelfEvaluation": "string"
+    }
+    Return ONLY the raw JSON object.`;
 
-  const userPrompt = `Subject: ${subject}, Grade: ${grade}, Strand: ${strand}, Sub-Strand: ${subStrand}, School: ${schoolName}. Context: ${knowledgeContext || ''}`;
+  const userPrompt = `Generate Lesson Plan for ${subject} Grade ${grade}. Topic: ${subStrand}. School: ${schoolName}. Context: ${knowledgeContext || ''}`;
 
   try {
     const result = await callDeepseek(systemInstruction, userPrompt, true);
-    return extractJSON(result) as LessonPlan;
+    const parsed = extractJSON(result);
+    // Force set learning area if AI misses it
+    if (!parsed.learningArea || parsed.learningArea === '-') {
+      parsed.learningArea = subject;
+    }
+    return parsed as LessonPlan;
   } catch (error: any) { throw error; }
 };
 
 export const generateLessonNotes = async (subj: string, grd: string, topic: string): Promise<string> => {
-  const sys = `Expert Subject Pedagogue. Generate detailed Markdown study notes for Grade ${grd} students.`;
-  const usr = `Generate study notes for ${subj} - ${topic}.`;
+  const sys = `Expert Subject Pedagogue. Generate detailed Markdown study notes for Grade ${grd} students. Use bold headers and lists.`;
+  const usr = `Generate comprehensive study notes for ${subj} - ${topic}.`;
   return await callDeepseek(sys, usr, false);
 };
