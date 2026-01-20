@@ -1,9 +1,8 @@
-
 import { SOWRow, LessonPlan } from "../types";
 
 /**
  * DEEPSEEK-V3 ENGINE
- * Re-implemented as requested by the user following account top-up.
+ * Re-implemented with robust JSON extraction and KICD workload balancing.
  */
 async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: boolean = false) {
   const apiKey = process.env.API_KEY;
@@ -36,18 +35,43 @@ async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: bo
   return data.choices[0].message.content;
 }
 
+/**
+ * ROBUST JSON EXTRACTOR
+ * Prevents "Malformed Output" crashes by locating JSON structures within text.
+ */
 function extractJSON(text: string) {
   let cleaned = text.trim();
-  if (cleaned.startsWith("```json")) {
-    cleaned = cleaned.replace(/^```json\n?/, "").replace(/\n?```$/, "");
-  } else if (cleaned.startsWith("```")) {
-    cleaned = cleaned.replace(/^```\n?/, "").replace(/\n?```$/, "");
-  }
+  
+  // Try direct parse first
   try {
     return JSON.parse(cleaned);
   } catch (e) {
-    console.error("DeepSeek JSON Parse Error:", text);
-    throw new Error("AI output was malformed. Please try again.");
+    // If that fails, look for the first '{' and last '}'
+    const startIdx = text.indexOf('{');
+    const endIdx = text.lastIndexOf('}');
+    
+    if (startIdx !== -1 && endIdx !== -1) {
+      const jsonStr = text.substring(startIdx, endIdx + 1);
+      try {
+        return JSON.parse(jsonStr);
+      } catch (innerError) {
+        console.error("DeepSeek Deep JSON Parse Error:", jsonStr);
+      }
+    }
+    
+    // Fallback: Remove markdown wrappers if present and try again
+    if (cleaned.startsWith("```json")) {
+      cleaned = cleaned.replace(/^```json\n?/, "").replace(/\n?```$/, "");
+    } else if (cleaned.startsWith("```")) {
+      cleaned = cleaned.replace(/^```\n?/, "").replace(/\n?```$/, "");
+    }
+    
+    try {
+      return JSON.parse(cleaned);
+    } catch (finalError) {
+      console.error("DeepSeek Final JSON Parse Error:", text);
+      throw new Error("The AI output was malformed. This usually happens if the response is too long. Please try again.");
+    }
   }
 }
 
@@ -60,9 +84,14 @@ export const generateSOWChunk = async (
   lessonsPerWeek: number,
   knowledgeContext?: string
 ): Promise<SOWRow[]> => {
+  // WORKLOAD DISTRIBUTION LOGIC (KICD/CBE Standard)
+  const workloadTarget = term === 1 ? "40% (Term One content)" : term === 2 ? "40% (Term Two content)" : "20% (Term Three content)";
+
   const systemInstruction = `You are a Senior KICD Curriculum Specialist. 
     TASK: Architect a CBE SOW for Weeks ${startWeek}-${endWeek} based on RATIONALIZED DESIGNS.
-    REFERENCING: Use the provided Knowledge Base documents to align with KICD Rationalized Designs.
+    WORKLOAD DISTRIBUTION: This is Term ${term}. You must cover approximately ${workloadTarget} of the yearly workload.
+    REFERENCING: Use the provided Knowledge Base documents to align exactly with KICD Rationalized Designs.
+    CBE STANDARDS: Outcomes must be observable. Experiences must be learner-centered.
     MANDATORY: Return ONLY a JSON object: { "lessons": [{ "week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection" }] }`;
 
   const userPrompt = `Subject: ${subject}, Grade: ${grade}, Term: ${term}, Lessons/Week: ${lessonsPerWeek}. Knowledge Context: ${knowledgeContext || 'Standard KICD Guidelines'}`;
@@ -72,7 +101,7 @@ export const generateSOWChunk = async (
     const parsed = extractJSON(result);
     return (parsed.lessons || []).map((lsn: any, idx: number) => ({
       ...lsn,
-      week: Math.floor(idx / lessonsPerWeek) + startWeek
+      week: lsn.week || Math.floor(idx / lessonsPerWeek) + startWeek
     })) as SOWRow[];
   } catch (error: any) { throw error; }
 };
@@ -87,6 +116,7 @@ export const generateLessonPlan = async (
 ): Promise<LessonPlan> => {
   const systemInstruction = `You are a Senior KICD CBE Pedagogy Expert.
     TASK: Architect a SUBSTANTIVE Lesson Plan for ${subject}.
+    CBE DESIGN: Focus on core competencies and values integration.
     CRITICAL: You MUST include the "lessonDevelopment" key as an array of 3-4 distinct steps.
     EACH STEP MUST HAVE: "title" (e.g. Step 1: Introduction), "duration" (e.g. 10m), and "content" (array of teacher/learner actions).
     CRITICAL: "learningArea" MUST be strictly set to "${subject}".

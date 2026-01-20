@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { generateSOWChunk } from '../services/geminiService';
 import { exportSOWToDocx } from '../services/exportService';
@@ -41,7 +40,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     subject: persistedMeta?.subject || '',
     grade: persistedMeta?.grade || '',
     term: persistedMeta?.term || 1,
-    year: persistedMeta?.year || 2026,
+    year: persistedMeta?.year || 2025,
     termStart: persistedMeta?.termStart || '2026-01-05',
     termEnd: persistedMeta?.termEnd || '2026-04-10',
     halfTermStart: persistedMeta?.halfTermStart || '2026-02-16',
@@ -67,9 +66,9 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
 
   const getTermString = (term: number) => {
     switch(term) {
-      case 1: return 'ONE';
-      case 2: return 'TWO';
-      case 3: return 'THREE';
+      case 1: return 'ONE (40%)';
+      case 2: return 'TWO (40%)';
+      case 3: return 'THREE (20%)';
       default: return 'ONE';
     }
   };
@@ -119,7 +118,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
       let allLessons: SOWRow[] = [];
 
       for (const chunk of chunks) {
-        setLoadingStatus(`DeepSeek Analysis: Weeks ${chunk.start}-${chunk.end}...`);
+        setLoadingStatus(`CBE Analysis: Weeks ${chunk.start}-${chunk.end}...`);
         const chunkResult = await generateSOWChunk(
           formData.subject, formData.grade, formData.term,
           chunk.start, chunk.end, effectiveLessonsPerWeek, knowledgeContext
@@ -164,8 +163,6 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
     if (persistedSow.length === 0) return;
     const existingId = formData.id;
     let newHistory = [...history];
-    
-    // Ensure the subject name is correctly saved from formData
     const currentSubjectName = formData.subject || 'Unknown Subject';
     
     if (existingId) {
@@ -246,9 +243,9 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2 ml-1">Academic Term</label>
                 <select className="w-full border-2 border-slate-50 p-4 rounded-2xl bg-slate-50 font-black text-[11px] outline-none" value={formData.term} onChange={e => setFormData({...formData, term: parseInt(e.target.value)})}>
-                  <option value={1}>Term 1</option>
-                  <option value={2}>Term 2</option>
-                  <option value={3}>Term 3</option>
+                  <option value={1}>Term 1 (40%)</option>
+                  <option value={2}>Term 2 (40%)</option>
+                  <option value={3}>Term 3 (20%)</option>
                 </select>
               </div>
             </div>
@@ -307,7 +304,7 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                  {loading ? `Generating: ${persistedSow.length} Rows` : `Year: ${formData.year} | Progress: ${Math.round((persistedSow.filter(r => r.isCompleted).length / (persistedSow.filter(r => !r.isBreak).length || 1)) * 100)}%`}
                </span>
                <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                  <div className={`h-full ${loading ? 'bg-indigo-400 animate-pulse' : 'bg-indigo-500'} transition-all`} style={{ width: `${loading ? 100 : Math.round((persistedSow.filter(r => r.isCompleted).length / (persistedSow.filter(r => !r.isBreak).length || 1)) * 100)}%` }}></div>
+                  <div className={`h-full ${loading ? 'bg-indigo-400 animate-pulse' : 'bg-indigo-50'} transition-all`} style={{ width: `${loading ? 100 : Math.round((persistedSow.filter(r => r.isCompleted).length / (persistedSow.filter(r => !r.isBreak).length || 1)) * 100)}%` }}></div>
                </div>
             </div>
             <div className="flex gap-3 w-full md:w-auto">
@@ -317,15 +314,15 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
             </div>
           </div>
 
-          <div className="bg-white p-6 md:p-14 border border-black shadow-2xl mb-32 sow-card rounded-[0.5rem] print:p-0 print:border-black">
+          <div className="bg-white p-6 md:p-14 border-2 border-black shadow-2xl mb-32 sow-card rounded-[0.5rem] print:p-0 print:border-black">
             <div className="text-center mb-8 border-b-2 border-black pb-6">
               <h1 className="text-xl md:text-2xl font-black uppercase mb-2 leading-relaxed text-black tracking-tight">
-                {userProfile.school || 'EDUPLAN MASTER SCHOOL'}
+                {userProfile.school || 'KABIANGEK JUNIOR SCHOOL'}
               </h1>
               <h2 className="text-lg font-black uppercase mb-2 text-black underline underline-offset-4">
                 {formData.year} RATIONALIZED {formData.subject.toUpperCase()} {formData.grade.toUpperCase()} SCHEMES OF WORK
               </h2>
-              <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-[11px] font-black uppercase text-black mt-4">
+              <div className="flex flex-wrap justify-center gap-x-8 gap-y-2 text-[10px] font-black uppercase text-black mt-4">
                  <span>TERM: {getTermString(formData.term)}</span>
                  <span>START: {formData.termStart}</span>
                  <span>END: {formData.termEnd}</span>
@@ -341,12 +338,12 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                     <th className="border-r border-black p-3 font-black uppercase w-8 text-center">WK</th>
                     <th className="border-r border-black p-3 font-black uppercase w-8 text-center">LSN</th>
                     <th className="border-r border-black p-3 font-black uppercase w-20 text-center">DATE</th>
-                    <th className="border-r border-black p-3 font-black uppercase w-32 text-left">STRAND</th>
-                    <th className="border-r border-black p-3 font-black uppercase w-40 text-left">SUB STRAND</th>
-                    <th className="border-r border-black p-3 font-black uppercase w-60 text-left">LEARNING OUTCOMES</th>
-                    <th className="border-r border-black p-3 font-black uppercase w-72 text-left">LEARNING EXPERIENCES</th>
-                    <th className="border-r border-black p-3 font-black uppercase w-40 text-left">RESOURCES</th>
-                    <th className="border-r border-black p-3 font-black uppercase w-40 text-left">ASSESSMENT</th>
+                    <th className="border-r border-black p-3 font-black uppercase w-44 text-left">STRAND</th>
+                    <th className="border-r border-black p-3 font-black uppercase w-48 text-left">SUB STRAND</th>
+                    <th className="border-r border-black p-3 font-black uppercase w-72 text-left">LEARNING OUTCOMES</th>
+                    <th className="border-r border-black p-3 font-black uppercase w-80 text-left">LEARNING EXPERIENCES</th>
+                    <th className="border-r border-black p-3 font-black uppercase w-48 text-left">RESOURCES</th>
+                    <th className="border-r border-black p-3 font-black uppercase w-48 text-left">ASSESSMENT</th>
                     <th className="p-3 font-black uppercase w-24 text-left">REFL.</th>
                   </tr>
                 </thead>
@@ -365,13 +362,13 @@ const SOWGenerator: React.FC<SOWGeneratorProps> = ({
                       <td className="border-r border-black p-2 text-center font-black">{r.week}</td>
                       <td className="border-r border-black p-2 text-center font-bold">{r.isBreak ? '-' : r.lesson}</td>
                       <td className="border-r border-black p-2 text-center font-black">{r.date || '-'}</td>
-                      <td className="border-r border-black p-2">{editingIndex === i ? <textarea className="w-full text-[8px]" value={r.strand} onChange={e => handleEditRow(i, 'strand', e.target.value)} /> : (r.strand || '—')}</td>
-                      <td className="border-r border-black p-2">{editingIndex === i ? <textarea className="w-full text-[8px]" value={r.subStrand} onChange={e => handleEditRow(i, 'subStrand', e.target.value)} /> : (r.subStrand || '—')}</td>
-                      <td className="border-r border-black p-2">{editingIndex === i ? <textarea className="w-full text-[8px]" value={r.learningOutcomes} onChange={e => handleEditRow(i, 'learningOutcomes', e.target.value)} /> : (r.learningOutcomes || '—')}</td>
-                      <td className="border-r border-black p-2">{editingIndex === i ? <textarea className="w-full text-[8px]" value={r.teachingExperiences} onChange={e => handleEditRow(i, 'teachingExperiences', e.target.value)} /> : (r.teachingExperiences || '—')}</td>
-                      <td className="border-r border-black p-2">{editingIndex === i ? <textarea className="w-full text-[8px]" value={r.learningResources} onChange={e => handleEditRow(i, 'learningResources', e.target.value)} /> : (r.learningResources || '—')}</td>
-                      <td className="border-r border-black p-2">{editingIndex === i ? <textarea className="w-full text-[8px]" value={r.assessmentMethods} onChange={e => handleEditRow(i, 'assessmentMethods', e.target.value)} /> : (r.assessmentMethods || '—')}</td>
-                      <td className="p-2">{editingIndex === i ? <textarea className="w-full text-[8px]" value={r.reflection} onChange={e => handleEditRow(i, 'reflection', e.target.value)} /> : (r.reflection || '—')}</td>
+                      <td className="border-r border-black p-2 font-medium">{editingIndex === i ? <textarea className="w-full text-[8px] bg-slate-50 border" value={r.strand} onChange={e => handleEditRow(i, 'strand', e.target.value)} /> : (r.strand || '—')}</td>
+                      <td className="border-r border-black p-2 font-medium">{editingIndex === i ? <textarea className="w-full text-[8px] bg-slate-50 border" value={r.subStrand} onChange={e => handleEditRow(i, 'subStrand', e.target.value)} /> : (r.subStrand || '—')}</td>
+                      <td className="border-r border-black p-2 text-[8px] leading-tight">{editingIndex === i ? <textarea className="w-full text-[8px] bg-slate-50 border" value={r.learningOutcomes} onChange={e => handleEditRow(i, 'learningOutcomes', e.target.value)} /> : (r.learningOutcomes || '—')}</td>
+                      <td className="border-r border-black p-2 text-[8px] leading-tight">{editingIndex === i ? <textarea className="w-full text-[8px] bg-slate-50 border" value={r.teachingExperiences} onChange={e => handleEditRow(i, 'teachingExperiences', e.target.value)} /> : (r.teachingExperiences || '—')}</td>
+                      <td className="border-r border-black p-2 text-[8px] leading-tight">{editingIndex === i ? <textarea className="w-full text-[8px] bg-slate-50 border" value={r.learningResources} onChange={e => handleEditRow(i, 'learningResources', e.target.value)} /> : (r.learningResources || '—')}</td>
+                      <td className="border-r border-black p-2 text-[8px] leading-tight">{editingIndex === i ? <textarea className="w-full text-[8px] bg-slate-50 border" value={r.assessmentMethods} onChange={e => handleEditRow(i, 'assessmentMethods', e.target.value)} /> : (r.assessmentMethods || '—')}</td>
+                      <td className="p-2 text-[8px]">{editingIndex === i ? <textarea className="w-full text-[8px] bg-slate-50 border" value={r.reflection} onChange={e => handleEditRow(i, 'reflection', e.target.value)} /> : (r.reflection || '—')}</td>
                     </tr>
                   ))}
                 </tbody>
