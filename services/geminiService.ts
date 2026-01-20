@@ -2,7 +2,7 @@ import { SOWRow, LessonPlan } from "../types";
 
 /**
  * DEEPSEEK-V3 ENGINE
- * Re-implemented with robust JSON extraction and KICD workload balancing.
+ * Optimized for CBE Standards and KICD Workload Distribution.
  */
 async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: boolean = false) {
   const apiKey = process.env.API_KEY;
@@ -22,7 +22,7 @@ async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: bo
       ],
       response_format: isJson ? { type: "json_object" } : undefined,
       temperature: 0.1, 
-      max_tokens: 4096
+      max_tokens: 4000 // Keeping safe buffer for completion
     })
   });
 
@@ -36,17 +36,16 @@ async function callDeepseek(systemPrompt: string, userPrompt: string, isJson: bo
 }
 
 /**
- * ROBUST JSON EXTRACTOR
- * Prevents "Malformed Output" crashes by locating JSON structures within text.
+ * FAIL-SAFE JSON EXTRACTOR
+ * Locates valid JSON blocks within conversational output.
  */
 function extractJSON(text: string) {
-  let cleaned = text.trim();
+  const cleaned = text.trim();
   
-  // Try direct parse first
   try {
     return JSON.parse(cleaned);
   } catch (e) {
-    // If that fails, look for the first '{' and last '}'
+    // Robust extraction for cut-off or conversational wrappers
     const startIdx = text.indexOf('{');
     const endIdx = text.lastIndexOf('}');
     
@@ -55,22 +54,20 @@ function extractJSON(text: string) {
       try {
         return JSON.parse(jsonStr);
       } catch (innerError) {
-        console.error("DeepSeek Deep JSON Parse Error:", jsonStr);
+        console.error("DeepSeek Extraction Failure:", innerError);
       }
     }
     
-    // Fallback: Remove markdown wrappers if present and try again
-    if (cleaned.startsWith("```json")) {
-      cleaned = cleaned.replace(/^```json\n?/, "").replace(/\n?```$/, "");
-    } else if (cleaned.startsWith("```")) {
-      cleaned = cleaned.replace(/^```\n?/, "").replace(/\n?```$/, "");
-    }
+    // Markdown cleanup
+    let mdClean = cleaned
+      .replace(/^```json\n?/, "")
+      .replace(/^```\n?/, "")
+      .replace(/\n?```$/, "");
     
     try {
-      return JSON.parse(cleaned);
+      return JSON.parse(mdClean);
     } catch (finalError) {
-      console.error("DeepSeek Final JSON Parse Error:", text);
-      throw new Error("The AI output was malformed. This usually happens if the response is too long. Please try again.");
+      throw new Error("The AI response was fragmented. We have reduced the chunk size to prevent this. Please try again.");
     }
   }
 }
@@ -84,17 +81,17 @@ export const generateSOWChunk = async (
   lessonsPerWeek: number,
   knowledgeContext?: string
 ): Promise<SOWRow[]> => {
-  // WORKLOAD DISTRIBUTION LOGIC (KICD/CBE Standard)
-  const workloadTarget = term === 1 ? "40% (Term One content)" : term === 2 ? "40% (Term Two content)" : "20% (Term Three content)";
+  // STRICT KICD WORKLOAD DISTRIBUTION (40/40/20 Rule)
+  const workloadRule = term === 1 ? "40% (Term One: Foundational concepts)" : term === 2 ? "40% (Term Two: Core development)" : "20% (Term Three: Culmination & Project work)";
 
   const systemInstruction = `You are a Senior KICD Curriculum Specialist. 
     TASK: Architect a CBE SOW for Weeks ${startWeek}-${endWeek} based on RATIONALIZED DESIGNS.
-    WORKLOAD DISTRIBUTION: This is Term ${term}. You must cover approximately ${workloadTarget} of the yearly workload.
-    REFERENCING: Use the provided Knowledge Base documents to align exactly with KICD Rationalized Designs.
-    CBE STANDARDS: Outcomes must be observable. Experiences must be learner-centered.
+    WORKLOAD RULE: This is Term ${term}. Strictly follow the distribution where Term 1 is 40%, Term 2 is 40%, and Term 3 is 20%.
+    CONCISENESS: Be detailed but concise in descriptions to avoid token limits.
+    REFERENCING: Align exactly with the provided Knowledge Base documents.
     MANDATORY: Return ONLY a JSON object: { "lessons": [{ "week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection" }] }`;
 
-  const userPrompt = `Subject: ${subject}, Grade: ${grade}, Term: ${term}, Lessons/Week: ${lessonsPerWeek}. Knowledge Context: ${knowledgeContext || 'Standard KICD Guidelines'}`;
+  const userPrompt = `Subject: ${subject}, Grade: ${grade}, Term: ${term}, Lessons/Week: ${lessonsPerWeek}. Content Context: ${knowledgeContext || 'Standard CBE'}`;
 
   try {
     const result = await callDeepseek(systemInstruction, userPrompt, true);
@@ -117,12 +114,11 @@ export const generateLessonPlan = async (
   const systemInstruction = `You are a Senior KICD CBE Pedagogy Expert.
     TASK: Architect a SUBSTANTIVE Lesson Plan for ${subject}.
     CBE DESIGN: Focus on core competencies and values integration.
-    CRITICAL: You MUST include the "lessonDevelopment" key as an array of 3-4 distinct steps.
-    EACH STEP MUST HAVE: "title" (e.g. Step 1: Introduction), "duration" (e.g. 10m), and "content" (array of teacher/learner actions).
-    CRITICAL: "learningArea" MUST be strictly set to "${subject}".
+    CRITICAL: "lessonDevelopment" MUST be an array of 3-4 steps with titles, durations, and content actions.
+    CRITICAL: "learningArea" MUST be set to "${subject}".
     Return ONLY a JSON object following the LessonPlan interface structure precisely.`;
 
-  const userPrompt = `Generate a Lesson Plan for ${subject} Grade ${grade}. Topic: ${subStrand}. Strand: ${strand}. School: ${schoolName}. Knowledge Context: ${knowledgeContext || ''}`;
+  const userPrompt = `Subject: ${subject} Grade ${grade}. Topic: ${subStrand}. Strand: ${strand}. School: ${schoolName}. Context: ${knowledgeContext || ''}`;
 
   try {
     const result = await callDeepseek(systemInstruction, userPrompt, true);
@@ -136,6 +132,6 @@ export const generateLessonPlan = async (
 
 export const generateLessonNotes = async (subj: string, grd: string, topic: string): Promise<string> => {
   const sys = `Expert Subject Pedagogue. Generate detailed Markdown study notes for Grade ${grd} students following KICD guidelines. Use bold headers.`;
-  const usr = `Generate study notes for ${subj} - ${topic}.`;
+  const usr = `Notes for ${subj} - ${topic}.`;
   return await callDeepseek(sys, usr, false);
 };
