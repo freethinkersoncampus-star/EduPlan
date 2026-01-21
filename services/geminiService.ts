@@ -1,8 +1,9 @@
+
 import { SOWRow, LessonPlan } from "../types";
 
 /**
  * QWEN AI ENGINE (Alibaba Cloud DashScope)
- * Re-implemented as requested to reduce hallucinations and utilize preferred token allocations.
+ * Updated to use Qwen3-Max for superior reasoning and KICD compliance.
  */
 async function callQwen(systemPrompt: string, userPrompt: string, isJson: boolean = false) {
   const apiKey = process.env.API_KEY;
@@ -15,7 +16,7 @@ async function callQwen(systemPrompt: string, userPrompt: string, isJson: boolea
       "Authorization": `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: "qwen-plus",
+      model: "qwen3-max", // Updated to use the latest Max series model
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
