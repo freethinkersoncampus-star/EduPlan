@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -209,6 +210,14 @@ const App = () => {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div></div>;
   if (!session) return <Login />;
 
+  // Optimized Knowledge Context helper
+  const getKnowledgeContext = () => {
+    return documents
+      .filter(d => d.isActiveContext)
+      .map(d => `[SOURCE: ${d.isSystemDoc ? 'OFFICIAL KICD DESIGN' : 'TEACHER NOTES'}] TITLE: ${d.title}\nCONTENT: ${d.content}`)
+      .join('\n\n---\n\n');
+  };
+
   return (
     <div className="flex min-h-screen bg-slate-50 flex-col md:flex-row font-inter">
       <Sidebar 
@@ -253,8 +262,8 @@ const App = () => {
           {activeTab === 'dashboard' && <Dashboard stats={{ sowCount: sowHistory.length, planCount: planHistory.length, subjectCount: (profile.subjects || []).length, nextLesson: slots.length > 0 ? slots[0].subject : 'None' }} slots={slots} user={profile} onNavigate={setActiveTab} />}
           {activeTab === 'registry' && <StaffManagement profile={profile} setProfile={wrapUpdate(setProfile)} syncStatus={syncStatus} syncMessage={syncMessage} lastSynced={lastSynced} onForceSync={() => syncToCloud(true)} />}
           {activeTab === 'timetable' && <Timetable slots={slots} setSlots={wrapUpdate(setSlots)} profile={profile} setProfile={wrapUpdate(setProfile)} />}
-          {activeTab === 'sow' && <SOWGenerator timetableSlots={slots} knowledgeContext={documents.filter(d => d.isActiveContext).map(d => d.content).join('\n\n')} persistedSow={currentSow} setPersistedSow={setCurrentSow} persistedMeta={currentSowMeta} setPersistedMeta={setCurrentSowMeta} onPrefillPlanner={(data) => { setPlannerPrefill(data); setActiveTab('lesson-planner'); }} userProfile={profile} history={sowHistory} setHistory={wrapUpdate(setSowHistory)} />}
-          {activeTab === 'lesson-planner' && <LessonPlanner knowledgeContext={documents.filter(d => d.isActiveContext).map(d => d.content).join('\n\n')} prefill={plannerPrefill} onClearPrefill={() => setPlannerPrefill(null)} userProfile={profile} savedPlans={planHistory} setSavedPlans={wrapUpdate(setPlanHistory)} savedNotes={noteHistory} setSavedNotes={wrapUpdate(setNoteHistory)} />}
+          {activeTab === 'sow' && <SOWGenerator timetableSlots={slots} knowledgeContext={getKnowledgeContext()} persistedSow={currentSow} setPersistedSow={setCurrentSow} persistedMeta={currentSowMeta} setPersistedMeta={setCurrentSowMeta} onPrefillPlanner={(data) => { setPlannerPrefill(data); setActiveTab('lesson-planner'); }} userProfile={profile} history={sowHistory} setHistory={wrapUpdate(setSowHistory)} />}
+          {activeTab === 'lesson-planner' && <LessonPlanner knowledgeContext={getKnowledgeContext()} prefill={plannerPrefill} onClearPrefill={() => setPlannerPrefill(null)} userProfile={profile} savedPlans={planHistory} setSavedPlans={wrapUpdate(setPlanHistory)} savedNotes={noteHistory} setSavedNotes={wrapUpdate(setNoteHistory)} />}
           {activeTab === 'documents' && <DocumentLibrary documents={documents} setDocuments={wrapUpdate(setDocuments)} />}
         </div>
       </main>

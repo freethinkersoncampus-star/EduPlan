@@ -3,13 +3,12 @@ import { SOWRow, LessonPlan } from "../types";
 
 /**
  * QWEN AI ENGINE (Alibaba Cloud DashScope - International)
- * Pointing to dashscope-intl for keys created in Singapore/International regions.
+ * Optimized for Qwen3-Max for high-precision curriculum alignment.
  */
 async function callQwen(systemPrompt: string, userPrompt: string, isJson: boolean = false) {
   const apiKey = (process.env.API_KEY || "").trim();
   if (!apiKey) throw new Error("API_KEY_MISSING");
 
-  // International accounts MUST use the -intl endpoint
   const endpoint = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions";
 
   try {
@@ -20,21 +19,20 @@ async function callQwen(systemPrompt: string, userPrompt: string, isJson: boolea
         "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: "qwen-max", // Using the standard max identifier for better regional compatibility
+        model: "qwen3-max", 
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
         response_format: isJson ? { type: "json_object" } : undefined,
         temperature: 0.1, 
-        max_tokens: 3000 
+        max_tokens: 3500 
       })
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       const msg = errorData.error?.message || `Error ${response.status}`;
-      // Log for the developer (you) to see in Browser Inspect -> Console
       console.error("AI AUTH DIAGNOSTIC:", errorData);
       throw new Error(msg);
     }
@@ -52,13 +50,11 @@ async function callQwen(systemPrompt: string, userPrompt: string, isJson: boolea
  */
 function extractJSON(text: string) {
   const cleaned = text.trim();
-  
   try {
     return JSON.parse(cleaned);
   } catch (e) {
     const startIdx = text.indexOf('{');
     const endIdx = text.lastIndexOf('}');
-    
     if (startIdx !== -1 && endIdx !== -1) {
       const jsonStr = text.substring(startIdx, endIdx + 1);
       try {
@@ -67,12 +63,10 @@ function extractJSON(text: string) {
         console.error("Qwen extraction failure:", innerError);
       }
     }
-    
     let mdClean = cleaned
       .replace(/^```json\n?/, "")
       .replace(/^```\n?/, "")
       .replace(/\n?```$/, "");
-    
     try {
       return JSON.parse(mdClean);
     } catch (finalError) {
@@ -92,10 +86,17 @@ export const generateSOWChunk = async (
 ): Promise<SOWRow[]> => {
   const systemInstruction = `You are a Senior KICD Curriculum Specialist. 
     TASK: Architect a CBE SOW for Weeks ${startWeek}-${endWeek} based on RATIONALIZED DESIGNS.
-    WORKLOAD RULE: This is Term ${term}. Strictly follow the distribution where Term 1 is 40%, Term 2 is 40%, and Term 3 is 20%.
+    
+    SOURCE OF TRUTH RULES:
+    1. If the context contains [OFFICIAL KICD DESIGN], you MUST follow its Strand/Sub-Strand sequence exactly. 
+    2. DO NOT skip to a later Strand until the current one is completed according to the KICD timeline.
+    3. If [TEACHER NOTES] are present, use them for specific learning activities and resources.
+    4. If no notes are present, use the [OFFICIAL KICD DESIGN] to derive outcomes and inquiry questions.
+    
+    WORKLOAD RULE: This is Term ${term}. Strictly follow the 40/40/20 Term distribution.
     MANDATORY: Return ONLY a JSON object: { "lessons": [{ "week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection" }] }`;
 
-  const userPrompt = `Subject: ${subject}, Grade: ${grade}, Term: ${term}, Lessons/Week: ${lessonsPerWeek}. Content Context: ${knowledgeContext || 'Standard CBE'}`;
+  const userPrompt = `Subject: ${subject}, Grade: ${grade}, Term: ${term}, Weeks ${startWeek}-${endWeek}. Context: ${knowledgeContext || 'Standard CBE'}`;
 
   try {
     const result = await callQwen(systemInstruction, userPrompt, true);
@@ -117,7 +118,8 @@ export const generateLessonPlan = async (
 ): Promise<LessonPlan> => {
   const systemInstruction = `You are a Senior KICD CBE Pedagogy Expert.
     TASK: Architect a SUBSTANTIVE Lesson Plan for ${subject}.
-    CBE DESIGN: Focus on core competencies and values integration.
+    ALIGNMENT: Follow the [OFFICIAL KICD DESIGN] for learning outcomes and core competencies.
+    DETAIL: Use [TEACHER NOTES] for the body of the lesson if available; otherwise, generate best-practice CBE steps.
     CRITICAL: "learningArea" MUST be set to "${subject}".
     Return ONLY a JSON object following the LessonPlan interface structure precisely.`;
 
@@ -134,7 +136,7 @@ export const generateLessonPlan = async (
 };
 
 export const generateLessonNotes = async (subj: string, grd: string, topic: string): Promise<string> => {
-  const sys = `Expert Subject Pedagogue. Generate detailed Markdown study notes for Grade ${grd} students following KICD guidelines. Use bold headers.`;
+  const sys = `Expert Subject Pedagogue. Generate detailed Markdown study notes for Grade ${grd} students following KICD guidelines. Focus on clarity and accuracy.`;
   const usr = `Notes for ${subj} - ${topic}.`;
   return await callQwen(sys, usr, false);
 };
