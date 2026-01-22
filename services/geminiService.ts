@@ -2,43 +2,53 @@
 import { SOWRow, LessonPlan } from "../types";
 
 /**
- * QWEN AI ENGINE (Alibaba Cloud DashScope)
- * Updated to use Qwen3-Max for superior reasoning and KICD compliance.
+ * QWEN AI ENGINE (Alibaba Cloud DashScope - International)
+ * Pointing to dashscope-intl for keys created in Singapore/International regions.
  */
 async function callQwen(systemPrompt: string, userPrompt: string, isJson: boolean = false) {
-  const apiKey = process.env.API_KEY;
+  const apiKey = (process.env.API_KEY || "").trim();
   if (!apiKey) throw new Error("API_KEY_MISSING");
 
-  const response = await fetch("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: "qwen3-max", // Updated to use the latest Max series model
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      response_format: isJson ? { type: "json_object" } : undefined,
-      temperature: 0.1, 
-      max_tokens: 4000 
-    })
-  });
+  // International accounts MUST use the -intl endpoint
+  const endpoint = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions";
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error?.message || `Qwen Engine Error: ${response.status}`);
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "qwen-max", // Using the standard max identifier for better regional compatibility
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        response_format: isJson ? { type: "json_object" } : undefined,
+        temperature: 0.1, 
+        max_tokens: 3000 
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const msg = errorData.error?.message || `Error ${response.status}`;
+      // Log for the developer (you) to see in Browser Inspect -> Console
+      console.error("AI AUTH DIAGNOSTIC:", errorData);
+      throw new Error(msg);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error: any) {
+    console.error("Fetch Exception:", error);
+    throw error;
   }
-
-  const data = await response.json();
-  return data.choices[0].message.content;
 }
 
 /**
  * FAIL-SAFE JSON EXTRACTOR
- * Locates valid JSON blocks within conversational output.
  */
 function extractJSON(text: string) {
   const cleaned = text.trim();
@@ -83,7 +93,6 @@ export const generateSOWChunk = async (
   const systemInstruction = `You are a Senior KICD Curriculum Specialist. 
     TASK: Architect a CBE SOW for Weeks ${startWeek}-${endWeek} based on RATIONALIZED DESIGNS.
     WORKLOAD RULE: This is Term ${term}. Strictly follow the distribution where Term 1 is 40%, Term 2 is 40%, and Term 3 is 20%.
-    REFERENCING: Align exactly with the provided Knowledge Base documents. DO NOT hallucinate details not found in context.
     MANDATORY: Return ONLY a JSON object: { "lessons": [{ "week", "lesson", "strand", "subStrand", "learningOutcomes", "teachingExperiences", "keyInquiryQuestions", "learningResources", "assessmentMethods", "reflection" }] }`;
 
   const userPrompt = `Subject: ${subject}, Grade: ${grade}, Term: ${term}, Lessons/Week: ${lessonsPerWeek}. Content Context: ${knowledgeContext || 'Standard CBE'}`;
@@ -109,7 +118,6 @@ export const generateLessonPlan = async (
   const systemInstruction = `You are a Senior KICD CBE Pedagogy Expert.
     TASK: Architect a SUBSTANTIVE Lesson Plan for ${subject}.
     CBE DESIGN: Focus on core competencies and values integration.
-    CRITICAL: "lessonDevelopment" MUST be an array of 3-4 steps with titles, durations, and content actions.
     CRITICAL: "learningArea" MUST be set to "${subject}".
     Return ONLY a JSON object following the LessonPlan interface structure precisely.`;
 
@@ -126,7 +134,7 @@ export const generateLessonPlan = async (
 };
 
 export const generateLessonNotes = async (subj: string, grd: string, topic: string): Promise<string> => {
-  const sys = `Expert Subject Pedagogue. Generate detailed Markdown study notes for Grade ${grd} students following KICD guidelines. Use bold headers. No conversational filler.`;
+  const sys = `Expert Subject Pedagogue. Generate detailed Markdown study notes for Grade ${grd} students following KICD guidelines. Use bold headers.`;
   const usr = `Notes for ${subj} - ${topic}.`;
   return await callQwen(sys, usr, false);
 };
